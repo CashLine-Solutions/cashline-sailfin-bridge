@@ -21,6 +21,8 @@
       <% end %>
     </dl>
 
+    <%= render "profile_progress", run: run %>
+
     <% if run.error_message.present? %>
       <div class="mt-4 rounded bg-rose-50 text-rose-900 p-3 text-sm whitespace-pre-wrap"><%= run.error_message %></div>
     <% end %>

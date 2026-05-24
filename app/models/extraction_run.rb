@@ -48,6 +48,21 @@ class ExtractionRun < ApplicationRecord
     update!(status: "failed", completed_at: Time.current, error_message: error.to_s)
   end
 
+  # Lightweight snapshot of how many ObjectProfile rows have finished, used
+  # by the run-detail panel's live progress strip. `expected` is the number
+  # of fan-out targets — i.e. sobjects in the run — so we can render
+  # "47 / 150 complete" even before all 150 ProfileObjectJobs have started.
+  def profile_progress
+    by_status = object_profiles.group(:status).count
+    {
+      expected: sobjects.count,
+      total: by_status.values.sum,
+      complete: by_status["complete"].to_i,
+      failed: by_status["failed"].to_i,
+      pending: by_status["pending"].to_i
+    }
+  end
+
   def record_partial_failure!(object_api_name:, reason:)
     # Atomic append at the SQL layer. ProfileObjectJob is fan-out with
     # total_limit: 4, so up to four jobs can call this simultaneously.

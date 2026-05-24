@@ -54,6 +54,33 @@ class ExtractionRunTest < ActiveSupport::TestCase
     assert_equal 1, run.partial_failures.size
   end
 
+  test "profile_progress reports counts by status plus the expected fan-out total" do
+    run = ExtractionRun.create!(api_version: "62.0", user: @user, seed_objects: %w[Account])
+    a = Sobject.create!(extraction_run: run, api_name: "Account", raw_describe: {})
+    b = Sobject.create!(extraction_run: run, api_name: "Contact", raw_describe: {})
+    c = Sobject.create!(extraction_run: run, api_name: "Opportunity", raw_describe: {})
+    ObjectProfile.create!(extraction_run: run, sobject: a, status: "complete", profiled_at: Time.current)
+    ObjectProfile.create!(extraction_run: run, sobject: b, status: "pending")
+    # c has no profile yet (job not started)
+
+    progress = run.profile_progress
+    assert_equal 3, progress[:expected], "expected = number of sobjects in the run"
+    assert_equal 2, progress[:total], "total = number of ObjectProfile rows created"
+    assert_equal 1, progress[:complete]
+    assert_equal 1, progress[:pending]
+    assert_equal 0, progress[:failed]
+  end
+
+  test "profile_progress reports zero when nothing has been profiled yet" do
+    run = ExtractionRun.create!(api_version: "62.0", user: @user, seed_objects: %w[Account])
+    Sobject.create!(extraction_run: run, api_name: "Account", raw_describe: {})
+
+    progress = run.profile_progress
+    assert_equal 1, progress[:expected]
+    assert_equal 0, progress[:total]
+    assert_equal 0, progress[:complete]
+  end
+
   test "record_partial_failure! is concurrency-safe: parallel writers do not lose entries" do
     run = ExtractionRun.create!(api_version: "62.0", seed_objects: %w[Account])
     # Two stale in-memory copies, each holding an empty partial_failures array.

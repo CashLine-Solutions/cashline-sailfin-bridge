@@ -1,0 +1,32 @@
+<%# Live profile-progress strip for a run.
+    Hidden entirely when no ObjectProfile rows exist yet (the extract phase
+    hasn't fanned out profile jobs). Shows a "done" state when every expected
+    profile has either completed or failed. %>
+
+<% progress = run.profile_progress %>
+<% expected = progress[:expected] %>
+<% finished = progress[:complete] + progress[:failed] %>
+
+<% if expected > 0 && progress[:total] > 0 %>
+  <% percent = expected.zero? ? 0 : (finished.to_f / expected * 100).round %>
+  <% all_done = finished >= expected %>
+  <div class="mt-4 rounded border border-slate-200 bg-slate-50 p-3 text-sm">
+    <div class="flex items-center justify-between mb-2">
+      <span class="font-medium text-slate-800">
+        <% if all_done %>
+          Profiling complete
+        <% else %>
+          Profiling in progress
+        <% end %>
+      </span>
+      <span class="text-xs text-slate-600">
+        <%= progress[:complete] %> / <%= expected %> complete<%
+        %><% if progress[:failed].positive? %> · <span class="text-rose-700"><%= progress[:failed] %> failed</span><% end %><%
+        %><% if progress[:pending].positive? && !all_done %> · <%= progress[:pending] %> running<% end %>
+      </span>
+    </div>
+    <div class="h-2 w-full rounded bg-slate-200 overflow-hidden">
+      <div class="h-full <%= all_done ? "bg-emerald-500" : "bg-blue-500" %> transition-all" style="width: <%= percent %>%"></div>
+    </div>
+  </div>
+<% end %>
