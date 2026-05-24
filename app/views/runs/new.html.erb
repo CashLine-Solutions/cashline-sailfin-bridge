@@ -47,12 +47,39 @@
   <div>
     <%= f.label :seed_objects, "Custom seed objects (comma-separated, leave empty to use preset)", class: "block text-sm font-medium text-slate-700" %>
     <%= text_field_tag "extraction_run[seed_objects][]", "", class: "mt-1 block w-full rounded border-slate-300", placeholder: "Invoice__c, Brand__c" %>
-    <p class="mt-1 text-xs text-slate-500">
-      Starting points for the BFS walk. The walker follows reference fields
-      outward until <code>max_hops</code> is reached or the next hop falls
-      outside the namespace allowlist. Use exact Salesforce API names
-      (case-sensitive, with <code>__c</code> suffix for custom objects).
-    </p>
+
+    <div class="mt-2 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 space-y-2">
+      <p>
+        <strong>What's a seed object?</strong> It's where the extraction
+        <em>starts</em>. The walker doesn't just describe the seed — it follows
+        every lookup and master-detail reference outward to discover related
+        objects, then walks from those, and keeps going outward until the
+        preset's hop limit.
+      </p>
+      <p>
+        Example: seed <code>Account</code>. The walker reads Account's describe,
+        sees that Account has reference fields to Contact, Opportunity, User,
+        RecordType, etc., and pulls each of those into the run automatically.
+        Then it walks <em>their</em> references the same way. You typically end
+        up with 15–30 standard objects from a single <code>Account</code> seed,
+        without listing any of them explicitly.
+      </p>
+      <p>
+        <strong>How to pick seeds:</strong> choose the objects that represent
+        the <em>core</em> of what you want to map; let the walker handle the
+        rest. For Sailfin work, that means the main AR objects (Account,
+        Invoice__c, etc.) plus any custom objects you specifically care about.
+        Use exact Salesforce API names — case-sensitive, with <code>__c</code>
+        for custom objects. Leave blank to use the preset's seed list.
+      </p>
+      <p class="text-slate-600">
+        The preset also controls the walk's <em>scope</em>: AR default stays in
+        the standard namespace; Sailfin scope extends the walk into
+        <code>sfsrm</code> and <code>sfcapp</code> managed packages, so
+        references from <code>Account</code> into Sailfin objects are followed
+        instead of skipped.
+      </p>
+    </div>
   </div>
 
   <div>
