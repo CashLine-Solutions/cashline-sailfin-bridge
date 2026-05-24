@@ -145,6 +145,32 @@ class ObjectsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "field action returns the extended-detail panel as a Turbo Frame" do
+    sign_in(@analyst)
+    get field_object_path(@sobject.api_name, field_name: @safe.api_name, run: @run.id)
+    assert_response :success
+    assert_match(/turbo-frame[^>]+id="detail_sfield_#{@safe.id}"/, response.body)
+    assert_match("Name", response.body)
+    # Layout-less response means no nav bar.
+    refute_match("Cashline", response.body[0..1500], "field action must render without the app layout")
+  end
+
+  test "field 404s for an unknown field_name on a known object" do
+    sign_in(@analyst)
+    get field_object_path(@sobject.api_name, field_name: "DoesNotExist__c", run: @run.id)
+    assert_response :not_found
+  end
+
+  test "field action redacts PII top-values when user lacks role" do
+    sign_in(@analyst_pii) # has role, BUT @run is non-sensitive — should still show
+    get field_object_path(@sobject.api_name, field_name: @pii.api_name, run: @run.id)
+    # The run isn't sensitive so PII values are redacted in the panel
+    # (matches the show-page semantics): see _field_detail_panel.html.erb's
+    # may_view_values branching.
+    assert_response :success
+    refute_match("x@y.com", response.body, "PII top values must not leak via the field detail panel on a non-sensitive run")
+  end
+
   test "sensitive run + role reveals PII values" do
     sensitive_run = ExtractionRun.create!(api_version: "62.0", include_sensitive: true, user: @analyst_pii, seed_objects: %w[Account], status: "complete", completed_at: Time.current)
     so = Sobject.create!(extraction_run: sensitive_run, api_name: "Account", label: "Account", raw_describe: {})

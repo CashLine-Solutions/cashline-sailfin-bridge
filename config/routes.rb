@@ -7,7 +7,10 @@ Rails.application.routes.draw do
   end
 
   resources :objects, only: [ :index, :show ], param: :api_name, constraints: { api_name: %r{[^/.]+} } do
-    member { get :fields }
+    member do
+      get :fields
+      get "fields/:field_name" => :field, as: :field, constraints: { field_name: %r{[^/.]+} }
+    end
   end
 
   resources :erds, only: [ :index, :show ], param: :slug, constraints: { slug: %r{[^/.]+} }

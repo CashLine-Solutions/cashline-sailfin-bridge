@@ -1,0 +1,201 @@
+<%# Extended view of a single Sfield. Reused by:
+    - objects/field.html.erb (Turbo Frame, inline expand on the fields table)
+
+    Locals:
+      sobject              — Sobject
+      sfield               — Sfield (with spicklist_values preloaded)
+      field_profile        — FieldProfile or nil (profiling may not be done)
+      object_profile       — ObjectProfile or nil
+      outgoing_relationships — Array<Srelationship> (only populated for reference fields)
+      run                  — ExtractionRun
+      hide_value_cols      — bool, true on sensitive runs the viewer can't access
+      can_see_sensitive    — bool, true if the viewer may see PII/financial values %>
+
+<% f = sfield %>
+<% fp = field_profile %>
+<% may_view_values = f.sensitivity.to_s == "safe" || can_see_sensitive %>
+
+<div class="bg-slate-50 px-4 py-4 border-l-4 border-emerald-300">
+  <div class="flex items-baseline justify-between mb-3">
+    <div>
+      <h3 class="text-base font-semibold font-mono">
+        <%= f.api_name %>
+        <% if f.calculated %><span class="ml-1 rounded bg-violet-100 text-violet-900 px-1 text-[10px]">calc</span><% end %>
+        <% if f.encrypted %><span class="ml-1 rounded bg-rose-100 text-rose-900 px-1 text-[10px]">enc</span><% end %>
+        <% if f.name_field %><span class="ml-1 rounded bg-emerald-100 text-emerald-900 px-1 text-[10px]">name</span><% end %>
+      </h3>
+      <p class="text-sm text-slate-600 mt-0.5">
+        <%= f.label %>
+        <span class="text-slate-400">·</span>
+        <span><%= f.data_type %><% if f.length %> (length <%= f.length %>)<% end %></span>
+        <% if f.sensitivity != "safe" %>
+          <span class="text-slate-400">·</span>
+          <span class="text-amber-800"><%= sensitivity_label(f.sensitivity) %></span>
+        <% end %>
+      </p>
+    </div>
+    <%= link_to "Open standalone page", object_path(sobject.api_name, run: run.id, anchor: "field-#{f.api_name}"),
+                class: "text-xs text-blue-700 underline" %>
+  </div>
+
+  <%# Top row: metrics %>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+    <div class="rounded border border-slate-200 bg-white px-3 py-2">
+      <p class="text-[10px] uppercase tracking-wide text-slate-500">Null rate</p>
+      <p class="text-sm font-medium"><%= fp&.null_rate ? "#{(fp.null_rate * 100).round(1)}%" : "—" %></p>
+    </div>
+    <div class="rounded border border-slate-200 bg-white px-3 py-2">
+      <p class="text-[10px] uppercase tracking-wide text-slate-500">Distinct values</p>
+      <p class="text-sm font-medium">
+        <% if fp.nil? %>—
+        <% elsif fp.distinct_count_suppressed %><span class="italic text-slate-500" title="Suppressed for sensitive field with low cardinality">suppressed</span>
+        <% else %><%= number_with_delimiter(fp.distinct_count || 0) %><% end %>
+      </p>
+    </div>
+    <div class="rounded border border-slate-200 bg-white px-3 py-2">
+      <p class="text-[10px] uppercase tracking-wide text-slate-500">Records (parent obj)</p>
+      <p class="text-sm font-medium"><%= object_profile&.record_count ? number_with_delimiter(object_profile.record_count) : "—" %></p>
+    </div>
+    <div class="rounded border border-slate-200 bg-white px-3 py-2">
+      <p class="text-[10px] uppercase tracking-wide text-slate-500">References</p>
+      <p class="text-sm font-medium"><%= f.references_count %></p>
+    </div>
+  </div>
+
+  <%# Type-specific stats %>
+  <% if fp && (fp.min_length || fp.max_length || fp.min_value || fp.min_date) %>
+    <div class="rounded border border-slate-200 bg-white px-3 py-2 mb-4 text-sm">
+      <p class="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Distribution</p>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+        <% if fp.min_length || fp.max_length %>
+          <% if fp.min_length %><div><span class="text-slate-500">min len</span> <%= fp.min_length %></div><% end %>
+          <% if fp.max_length %><div><span class="text-slate-500">max len</span> <%= fp.max_length %></div><% end %>
+          <% if fp.avg_length %><div><span class="text-slate-500">avg len</span> <%= fp.avg_length.round(1) %></div><% end %>
+        <% end %>
+        <% if fp.min_value || fp.max_value %>
+          <div><span class="text-slate-500">min</span> <%= fp.min_value %></div>
+          <div><span class="text-slate-500">max</span> <%= fp.max_value %></div>
+          <% if fp.mean_value %><div><span class="text-slate-500">mean</span> <%= fp.mean_value %></div><% end %>
+          <% if fp.p50_value %><div><span class="text-slate-500">p50</span> <%= fp.p50_value %></div><% end %>
+          <% if fp.p95_value %><div><span class="text-slate-500">p95</span> <%= fp.p95_value %></div><% end %>
+        <% end %>
+        <% if fp.min_date || fp.max_date %>
+          <% if fp.min_date %><div><span class="text-slate-500">earliest</span> <%= fp.min_date.to_date %></div><% end %>
+          <% if fp.max_date %><div><span class="text-slate-500">latest</span> <%= fp.max_date.to_date %></div><% end %>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+
+  <%# Top values (full list, with bar chart) %>
+  <% if fp && fp.top_values.present? %>
+    <div class="rounded border border-slate-200 bg-white px-3 py-3 mb-4">
+      <p class="text-[10px] uppercase tracking-wide text-slate-500 mb-2">Top values (<%= fp.top_values.size %>)</p>
+      <% if hide_value_cols %>
+        <%= redacted_cell(f) %>
+      <% elsif may_view_values %>
+        <% max_count = fp.top_values.map { |tv| (tv["count"] || tv["c"]).to_i }.max %>
+        <ul class="space-y-1 text-xs">
+          <% fp.top_values.each do |tv| %>
+            <% value = tv["value"] || tv["v"] %>
+            <% count = (tv["count"] || tv["c"]).to_i %>
+            <% pct = max_count.positive? ? (count.to_f / max_count * 100).round : 0 %>
+            <li class="grid grid-cols-[1fr_auto_60px] items-center gap-2">
+              <span class="font-mono truncate" title="<%= value %>"><%= value.to_s.truncate(80) %></span>
+              <span class="text-slate-600"><%= number_with_delimiter(count) %></span>
+              <span class="block h-1.5 rounded bg-slate-100">
+                <span class="block h-1.5 rounded bg-blue-400" style="width: <%= pct %>%"></span>
+              </span>
+            </li>
+          <% end %>
+        </ul>
+      <% else %>
+        <%= redacted_cell(f) %>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%# Sample values %>
+  <% if fp && fp.sample_values.present? %>
+    <div class="rounded border border-slate-200 bg-white px-3 py-3 mb-4">
+      <p class="text-[10px] uppercase tracking-wide text-slate-500 mb-2">Samples (<%= fp.sample_values.size %>)</p>
+      <% if may_view_values && !hide_value_cols %>
+        <ul class="text-xs font-mono space-y-1">
+          <% fp.sample_values.each do |s| %>
+            <li class="truncate" title="<%= s %>"><%= s.to_s.truncate(120) %></li>
+          <% end %>
+        </ul>
+      <% else %>
+        <%= redacted_cell(f) %>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%# Picklist values %>
+  <% if sfield.spicklist_values.any? %>
+    <div class="rounded border border-slate-200 bg-white px-3 py-3 mb-4">
+      <p class="text-[10px] uppercase tracking-wide text-slate-500 mb-2">Picklist values (<%= sfield.spicklist_values.size %>)</p>
+      <ul class="text-xs space-y-0.5">
+        <% sfield.spicklist_values.sort_by { |pv| [pv.active ? 0 : 1, pv.value.to_s] }.each do |pv| %>
+          <li class="<%= 'text-slate-400 line-through' unless pv.active %>">
+            <span class="font-mono"><%= pv.value %></span>
+            <% if pv.label && pv.label != pv.value %><span class="text-slate-500">— <%= pv.label %></span><% end %>
+            <% if pv.default_value %><span class="ml-1 rounded bg-emerald-100 text-emerald-900 px-1 text-[10px]">default</span><% end %>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <%# Outbound reference (this field points at another sobject) %>
+  <% if outgoing_relationships.any? %>
+    <div class="rounded border border-slate-200 bg-white px-3 py-3 mb-4">
+      <p class="text-[10px] uppercase tracking-wide text-slate-500 mb-2">Reference target</p>
+      <ul class="text-xs space-y-1">
+        <% outgoing_relationships.each do |r| %>
+          <li>
+            <% if r.target_sobject %>
+              → <%= link_to r.target_sobject.api_name, object_path(r.target_sobject.api_name, run: run.id), class: "font-mono text-blue-700 underline" %>
+            <% else %>
+              → <span class="font-mono text-slate-700"><%= Array(r.reference_to_api_names).join(", ") %></span>
+            <% end %>
+            <% if r.polymorphic %><span class="ml-1 rounded bg-slate-100 text-slate-700 text-[10px] px-1">polymorphic</span><% end %>
+            <% if r.relationship_name %><span class="text-slate-500 ml-2">relationship: <code><%= r.relationship_name %></code></span><% end %>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <%# Sensitivity signals — show which patterns triggered classification %>
+  <% if Array(f.sensitivity_signals).any? %>
+    <div class="rounded border border-slate-200 bg-white px-3 py-3 mb-4">
+      <p class="text-[10px] uppercase tracking-wide text-slate-500 mb-2">Sensitivity classification</p>
+      <p class="text-xs text-slate-700">Marked <strong><%= f.sensitivity %></strong> based on:</p>
+      <ul class="text-xs text-slate-600 list-disc pl-5 mt-1">
+        <% Array(f.sensitivity_signals).each do |signal| %>
+          <li class="font-mono"><%= signal %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <%# Formula source %>
+  <% if f.calculated && f.calculated_formula.present? %>
+    <div class="rounded border border-slate-200 bg-white px-3 py-3 mb-4">
+      <p class="text-[10px] uppercase tracking-wide text-slate-500 mb-2">Formula</p>
+      <pre class="text-xs bg-slate-50 p-2 rounded overflow-x-auto"><%= f.calculated_formula %></pre>
+    </div>
+  <% end %>
+
+  <%# Flags row (compact) %>
+  <div class="text-xs text-slate-500 flex flex-wrap gap-3 mt-2">
+    <span title="Field is readable via API"><%= f.accessible ? "✓" : "✗" %> accessible</span>
+    <span><%= f.createable ? "✓" : "✗" %> createable</span>
+    <span><%= f.updateable ? "✓" : "✗" %> updateable</span>
+    <span><%= f.filterable ? "✓" : "✗" %> filterable</span>
+    <span><%= f.nillable ? "✓" : "✗" %> nillable</span>
+    <% if f.namespace_prefix.present? %><span>namespace <code><%= f.namespace_prefix %></code></span><% end %>
+    <% if f.compound_field_name.present? %><span>compound: <code><%= f.compound_field_name %></code></span><% end %>
+  </div>
+</div>

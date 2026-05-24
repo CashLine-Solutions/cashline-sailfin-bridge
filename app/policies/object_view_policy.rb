@@ -12,4 +12,6 @@ class ObjectViewPolicy < ApplicationPolicy
 
   # Inline-expand fields panel uses the same access rule as show.
   alias_method :fields?, :show?
+  # Per-field extended view also same access rule.
+  alias_method :field?, :show?
 end

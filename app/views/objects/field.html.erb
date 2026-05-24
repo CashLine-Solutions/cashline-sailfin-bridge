@@ -1,0 +1,13 @@
+<% can_see_sensitive = can_view_sensitive_values?(@run, Current.user) %>
+<% hide_value_cols = (@run.include_sensitive && !Current.user&.sensitive_data_access?) %>
+<%= turbo_frame_tag dom_id(@sfield, :detail) do %>
+  <%= render "field_detail_panel",
+        sobject: @sobject,
+        sfield: @sfield,
+        field_profile: @field_profile,
+        object_profile: @object_profile,
+        outgoing_relationships: @outgoing_relationships,
+        run: @run,
+        hide_value_cols: hide_value_cols,
+        can_see_sensitive: can_see_sensitive %>
+<% end %>

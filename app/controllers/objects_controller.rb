@@ -55,6 +55,21 @@ class ObjectsController < ApplicationController
     render layout: false
   end
 
+  # Per-field extended view, lazy-loaded as a Turbo Frame from the fields
+  # table. Also directly addressable as /objects/:api_name/fields/:field_name
+  # for deep-linking. Same ObjectViewPolicy gate as #show so sensitivity
+  # redaction stays consistent.
+  def field
+    @sobject = Sobject.where(extraction_run: @run).find_by!(api_name: params[:api_name])
+    authorize @sobject, policy_class: ObjectViewPolicy
+    @sfield = @sobject.sfields.includes(:spicklist_values).find_by!(api_name: params[:field_name])
+    @object_profile = ObjectProfile.find_by(extraction_run: @run, sobject: @sobject)
+    @field_profile = @object_profile ? FieldProfile.find_by(object_profile: @object_profile, sfield: @sfield) : nil
+    @outgoing_relationships = Srelationship.where(extraction_run: @run, source_field: @sfield)
+      .includes(:target_sobject).to_a
+    render layout: false
+  end
+
   private
 
   def load_run

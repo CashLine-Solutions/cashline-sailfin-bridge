@@ -49,10 +49,33 @@ export default class extends Controller {
     const indicator = th.querySelector(".sort-indicator")
     if (indicator) indicator.textContent = nextDir === "asc" ? " ▲" : " ▼"
 
-    const rows = Array.from(this.bodyTarget.querySelectorAll("tr"))
-    rows.sort((a, b) => {
-      const aVal = this.#cellValue(a.children[colIndex], type)
-      const bVal = this.#cellValue(b.children[colIndex], type)
+    // Build pairs of (data row, optional detail row). A row with
+    // data-detail-for matches the immediately-preceding data row's
+    // data-field-name so inline expansion panels follow their parent
+    // row when sorted.
+    const allRows = Array.from(this.bodyTarget.querySelectorAll(":scope > tr"))
+    const pairs = []
+    let i = 0
+    while (i < allRows.length) {
+      const row = allRows[i]
+      if (row.dataset.detailFor) {
+        // Orphan detail row (no preceding data row found in pair logic).
+        // Keep it where it is by emitting as a solo entry.
+        pairs.push([row, null])
+        i++
+        continue
+      }
+      const next = allRows[i + 1]
+      const detail = next && next.dataset.detailFor === row.dataset.fieldName ? next : null
+      pairs.push([row, detail])
+      i += detail ? 2 : 1
+    }
+
+    pairs.sort((a, b) => {
+      const aCell = a[0].children[colIndex]
+      const bCell = b[0].children[colIndex]
+      const aVal = this.#cellValue(aCell, type)
+      const bVal = this.#cellValue(bCell, type)
 
       // Nulls sort to the bottom regardless of direction.
       if (aVal === null && bVal === null) return 0
@@ -68,8 +91,11 @@ export default class extends Controller {
       return nextDir === "asc" ? cmp : -cmp
     })
 
-    // Re-append in sorted order. appendChild moves existing nodes.
-    rows.forEach(row => this.bodyTarget.appendChild(row))
+    // Re-append data + detail rows together. appendChild moves nodes.
+    pairs.forEach(([row, detail]) => {
+      this.bodyTarget.appendChild(row)
+      if (detail) this.bodyTarget.appendChild(detail)
+    })
   }
 
   #cellValue(cell, type) {
