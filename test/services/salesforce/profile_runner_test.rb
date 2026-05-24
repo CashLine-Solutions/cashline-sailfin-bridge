@@ -198,5 +198,36 @@ module Salesforce
       profile = runner.profile!(extraction_run: @run, sobject: @sobject, policy: policy)
       assert_equal "complete", profile.status
     end
+
+    test "nil record_count (no Tooling RecordCount) sets sampled=false and proceeds via SOQL path" do
+      # Reproduces the production bug where every standard Salesforce object
+      # comes back with nil RecordCount from EntityDefinition. Previously
+      # `use_bulk = nil && ...` resolved to nil and writing nil into the
+      # NOT NULL `sampled` column raised PG::NotNullViolation for every
+      # ProfileObjectJob in a run.
+      routes = [
+        ["FROM Contact WHERE Title = null", [{ "c" => 0 }]],
+        ["FROM Contact WHERE Email = null", [{ "c" => 0 }]],
+        ["COUNT_DISTINCT(Title)", [{ "c" => 1 }]],
+        ["COUNT_DISTINCT(Email)", [{ "c" => 1 }]],
+        ["SELECT COUNT(Id) c FROM Contact", [{ "c" => 0 }]],
+        ["GROUP BY Title", [{ "v" => "X", "c" => 0 }]],
+        ["GROUP BY Email", [{ "v" => "X", "c" => 0 }]],
+        ["SELECT Title FROM Contact", []],
+        ["SELECT Email FROM Contact", []]
+      ]
+
+      runner = ProfileRunner.new(rest_client: StubRest.new(routes), tooling_client: StubTooling.new(record_count: nil))
+      policy = Ontology::ProfilingPolicy.new(extraction_run: @run, user: @user)
+
+      profile = nil
+      assert_nothing_raised do
+        profile = runner.profile!(extraction_run: @run, sobject: @sobject, policy: policy)
+      end
+
+      assert_equal "complete", profile.status
+      assert_equal false, profile.sampled
+      assert_nil profile.record_count
+    end
   end
 end

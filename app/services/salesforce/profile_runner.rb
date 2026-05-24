@@ -26,10 +26,14 @@ module Salesforce
       end
 
       record_count = fetch_record_count(sobject.api_name)
-      profile.update!(record_count: record_count)
 
-      use_bulk = record_count && record_count > LARGE_OBJECT_THRESHOLD
-      profile.update!(sampled: use_bulk)
+      # Coerce to boolean. fetch_record_count returns nil whenever the Tooling
+      # query has no result (common for standard Salesforce objects), and
+      # `nil && ...` is nil — writing nil to a NOT NULL boolean column raises
+      # PG::NotNullViolation, AND leaves the in-memory model dirty so the
+      # subsequent rescue update can't record the failure either.
+      use_bulk = record_count.to_i > LARGE_OBJECT_THRESHOLD
+      profile.update!(record_count: record_count, sampled: use_bulk)
 
       sobject.sfields.find_each do |sfield|
         compute_field_profile!(profile, sfield, use_bulk: use_bulk, policy: policy)
@@ -38,7 +42,16 @@ module Salesforce
       profile.update!(status: "complete", profiled_at: Time.current)
       profile
     rescue StandardError => e
-      profile&.update!(status: "failed", failure_reason: e.message)
+      # Reload before recording the failure so dirty in-memory state from the
+      # raising update! doesn't get re-sent and re-fail.
+      if profile&.persisted?
+        begin
+          profile.reload
+          profile.update!(status: "failed", failure_reason: e.message)
+        rescue ActiveRecord::ActiveRecordError => save_error
+          Rails.logger.error("[ProfileRunner] failed to record profile failure for sobject #{sobject.api_name}: #{save_error.class}: #{save_error.message}")
+        end
+      end
       raise
     end
 
