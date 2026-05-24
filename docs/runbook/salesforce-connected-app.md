@@ -24,18 +24,24 @@ Make a calendar reminder ~30 days before the `-days` expiry — Salesforce suppo
 
 ## 2. Create the Connected App in Salesforce
 
-Salesforce Setup → App Manager → New Connected App (or New External Client App in newer orgs).
+**External Client App (newer model, recommended):** Setup → quick-find **"External Client App Manager"** → **New External Client App**.
 
 | Field | Value |
 |---|---|
-| Connected App Name | `cashline-ontology (sandbox)` or `cashline-ontology (production)` |
+| External Client App Name | `cashline_ontology` |
 | Contact Email | a real person on your team |
-| Enable OAuth Settings | ✅ |
+| Distribution State | Local |
+| Enable OAuth | ✅ |
 | Callback URL | `https://login.salesforce.com/services/oauth2/callback` (used only for one-time pre-auth in step 5) |
-| Use digital signatures | ✅ — upload `sf_cert.crt` |
-| Selected OAuth Scopes | `api`, `refresh_token`, `web` (only for the pre-auth step in #5) |
+| Selected OAuth Scopes | `api`, `offline_access` (External Client App naming for `refresh_token`), `web` |
+| Flow Enablement → Enable JWT Bearer Flow | ✅ |
+| Certificate Upload | upload `sf_cert.crt` (appears after JWT Bearer is checked) |
 
-Save. Wait 2-10 minutes for the policy to propagate (Salesforce's quoted SLA).
+Save. **Then go to the app's Policies tab → Edit:** set **IP Relaxation** to **Relax IP restrictions** (required for JWT from non-whitelisted IPs like your laptop or any cloud host).
+
+Wait 2-10 minutes for the policy to propagate (Salesforce's quoted SLA).
+
+> **Legacy Connected App users:** Setup → App Manager → New Connected App. The form labels differ (e.g., "Use digital signatures" replaces the JWT Bearer checkbox), but the same fields are present.
 
 ## 3. Note the consumer key
 
@@ -90,13 +96,28 @@ Repeat for `--environment production`.
 
 ## 7. Smoke test the handshake
 
-Once `Salesforce::ClientFactory` is wired (Unit 6), verify auth:
-
 ```bash
-bin/rails runner "Salesforce::ClientFactory.rest.user_info"
+bin/rails sailfin:smoke
 ```
 
-Expected: returns the integration user's info hash. If you get `invalid_grant`, you almost certainly missed the pre-auth step (#4 or #5). If you get a cert/signature error, double-check the PEM is intact in `credentials.yml.enc` (trailing newline matters).
+Expected: `OK — authenticated. Sample user: integration@yourcompany.com.sandbox (Id: 005...)`.
+
+The task wraps a one-row SOQL query against the `User` table; both auth (JWT exchange) and API connectivity (REST query) are exercised in one shot.
+
+If it fails, the task prints the common causes:
+- `invalid_grant` → pre-auth missed (#4 or #5 above)
+- `invalid_client_id` → consumer key wrong, or app still propagating (wait 2–10 min)
+- `KeyError on :username` → credentials block missing or misindented
+- IP rejection → Permitted Users → **Relax IP restrictions** in External Client App Manager → Policies
+
+After smoke succeeds, you can also run:
+
+```bash
+bin/rails sailfin:namespaces  # histogram of all visible objects by namespace prefix
+bin/rails sailfin:limits      # current API quota snapshot
+```
+
+`sailfin:namespaces` is the most useful step before triggering an extraction — it tells you what the managed-package namespace is and which standard objects to seed from.
 
 ## 8. Cert rotation (annual)
 

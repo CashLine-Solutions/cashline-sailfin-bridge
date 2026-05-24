@@ -6,35 +6,77 @@ See `docs/brainstorms/2026-05-23-sailfin-extraction-and-ontology-requirements.md
 
 ## Current status
 
-**Phase A complete** — Rails skeleton + Rails 8 authentication + Pundit + append-only audit log. Subsequent phases (Salesforce client, extraction, profiling, UI views, run diff) are planned but not yet implemented; see the plan document for the unit list.
+**Phases A–F complete** (all 21 implementation units from the plan):
+
+| Phase | Coverage |
+|---|---|
+| **A** Foundation | Rails 8 skeleton, session auth, role-based access (Pundit), append-only audit log (separate DB + trigger) |
+| **B** Salesforce client | JWT Bearer auth via Restforce 8, token cache, API limits guard |
+| **C** Extraction | `ExtractionRun` model, REST `describe` walker, Tooling API, JSONL run storage, relational loader |
+| **D** Profiling | Sensitivity classifier (PII / financial), `ProfileObjectJob`, Bulk 2.0 sampling, redaction policy |
+| **E** UI views | Runs / objects / ERDs (Mermaid) / force-directed graph (Cytoscape) / hub-orphan + unused-fields reports |
+| **F** Diff | `DiffCalculator` + `ComputeDiffJob`, categorized diff UI, Markdown export |
+
+Phase 3 (mapping workbench, FIBO suggestions, Turtle export) is deferred to a future plan.
+
+178 tests, 457 assertions, 0 failures.
 
 ## Quickstart (development)
 
 Prerequisites:
 - Ruby 3.3+
-- PostgreSQL 14+ running locally (homebrew default works)
+- PostgreSQL 14+ running locally
 
 ```bash
 bundle install
 bin/rails db:create db:migrate
-
-# Seed an initial admin (uses a generated password if PASSWORD env unset)
 bin/rails users:create_admin EMAIL=you@example.com
-
 bin/rails server
 ```
 
 Sign in at `http://localhost:3000/session/new`.
 
-## Architecture (Phase A)
+## Try it without Salesforce credentials
+
+Seed two fake extraction runs to preview the full UI end-to-end:
+
+```bash
+bin/rails ontology:demo_data
+```
+
+This creates a baseline run and a "delta" run with a known set of differences (a new object, a new field, a picklist change, a formula change, a length change, a new relationship). Useful for:
+
+- Verifying Cytoscape, Mermaid, and Turbo Streams render in your browser
+- Trying the diff UI and Markdown export
+- Walking a designer through the views before real extraction
+
+Open `/runs`, then explore. To wipe and re-seed:
+
+```bash
+bin/rails ontology:demo_data RESET=1
+```
+
+## Connecting to Salesforce
+
+See `docs/runbook/salesforce-connected-app.md` for the one-time External Client App setup. After credentials are wired:
+
+```bash
+bin/rails sailfin:smoke         # verify JWT + basic API connectivity
+bin/rails sailfin:namespaces    # histogram of all visible objects by namespace prefix
+bin/rails sailfin:limits        # current API quota snapshot
+```
+
+`sailfin:namespaces` is the right way to discover what Sailfin's managed-package namespace prefix is before triggering a real extraction. Use that output to update `RunsController::PRESET_SEED_OBJECTS` or pass a custom seed list via `/runs/new`.
+
+## Architecture
 
 Three Postgres databases (configured in `config/database.yml`):
 
 | Database | Purpose |
 |---|---|
-| `cashline_ontology_development` | Primary app data (users, sessions, future schema rows, GoodJob queue) |
-| `cashline_ontology_development_cache` | Solid Cache backend (Rails.cache; will host Salesforce token cache in Phase B) |
-| `cashline_ontology_development_audit` | Append-only `audit_events`; in production has separate Postgres roles |
+| `cashline_ontology_development` | Primary app data (users, sessions, runs, sobjects, sfields, profiles, clusters, diffs, GoodJob queue) |
+| `cashline_ontology_development_cache` | Solid Cache backend (Rails.cache; Salesforce token cache) |
+| `cashline_ontology_development_audit` | Append-only `audit_events`; in production has separate Postgres roles (see `docs/runbook/audit-db.md`) |
 
 Background jobs run on **GoodJob 4.x** (Postgres-native). Dashboard mounted at `/jobs`, gated to admin users via `AdminConstraint`.
 
@@ -42,28 +84,11 @@ Authorization via **Pundit**; policies live in `app/policies/`. The `User` model
 
 Schema dumps use SQL format (`db/structure.sql`, `db/audit_structure.sql`) so custom Postgres DDL (the audit trigger) is preserved.
 
-## Audit log
+## Runbooks
 
-`audit_events` is append-only with two enforcement layers:
-- **Model**: `AuditEvent#update` and `#destroy` raise `ActiveRecord::ReadOnlyRecord`
-- **Database**: a `BEFORE UPDATE OR DELETE` trigger raises an exception, catching anything that bypasses ActiveRecord
-
-In production, the audit DB also uses two Postgres roles — `cashline_audit_owner` (for migrations) and `cashline_audit_writer` (Rails runtime, INSERT/SELECT only). Provisioning:
-
-```bash
-# Run once as a Postgres superuser
-AUDIT_DB=cashline_ontology_production_audit \
-AUDIT_OWNER_PASSWORD=... \
-AUDIT_WRITER_PASSWORD=... \
-POSTGRES_SUPERUSER_URL=postgres://postgres@host/postgres \
-  bin/rails audit:provision_roles
-
-# After audit migrations land:
-AUDIT_DB=... AUDIT_OWNER_URL=... bin/rails audit:apply_writer_grants
-
-# Verify writer cannot UPDATE/DELETE:
-AUDIT_WRITER_URL=... bin/rails audit:smoke
-```
+- `docs/runbook/salesforce-connected-app.md` — External Client App + JWT cert setup, credentials format, smoke test
+- `docs/runbook/audit-db.md` — Audit DB roles, provisioning, retention, tampering forensics
+- `docs/runbook/run-storage.md` — Run directory layout, sensitive-run handling, retention, rebuild commands
 
 ## Tests
 
@@ -71,12 +96,20 @@ AUDIT_WRITER_URL=... bin/rails audit:smoke
 bin/rails test
 ```
 
-## What's not here yet (per the plan)
+## Operations cheat sheet
 
-- Salesforce JWT Bearer auth (Phase B, Units 5–6)
-- API limits check (Unit 7)
-- Extraction runs + relational load (Phase C, Units 8–11)
-- Sensitivity classifier + profiling (Phase D, Units 12–15)
-- UI views: runs / objects / ERDs / graph / reports / diff (Phase E, Units 16–20)
-- Run-to-run diff (Phase F, Unit 21)
-- Connected App + JWT cert runbook (`docs/runbook/`)
+```bash
+# Daily ops
+bin/rails ontology:demo_data RESET=1          # reset + reseed demo runs
+bin/rails sailfin:smoke                       # verify Salesforce connectivity
+bin/rails sailfin:namespaces                  # inspect org's object namespaces
+bin/rails sailfin:limits                      # current API quota
+bin/rails users:create_admin EMAIL=...        # provision an admin
+bin/rails users:list                          # list users + roles
+bin/rails runs:rebuild_db RUN=<token>         # rebuild relational tables from on-disk JSONL
+
+# Audit DB (production)
+bin/rails audit:provision_roles               # create owner + writer roles
+bin/rails audit:apply_writer_grants           # grant INSERT/SELECT only on audit_events
+bin/rails audit:smoke                         # verify writer cannot UPDATE/DELETE
+```

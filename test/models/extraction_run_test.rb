@@ -61,6 +61,29 @@ class ExtractionRunTest < ActiveSupport::TestCase
     assert_equal "token exchange failed", run.error_message
   end
 
+  test "destroying a run cascades through profiles, fields, picklist values, and relationships" do
+    run = ExtractionRun.create!(api_version: "62.0", user: @user, seed_objects: [])
+    other = ExtractionRun.create!(api_version: "62.0", user: @user, seed_objects: [])
+    acc = Sobject.create!(extraction_run: run, api_name: "Account", raw_describe: {})
+    contact = Sobject.create!(extraction_run: run, api_name: "Contact", raw_describe: {})
+    sf = Sfield.create!(sobject: acc, api_name: "Status", data_type: "picklist", raw_describe: {})
+    SpicklistValue.create!(sfield: sf, value: "Open", active: true)
+    Srelationship.create!(extraction_run: run, source_sobject: contact, target_sobject: acc)
+    profile = ObjectProfile.create!(extraction_run: run, sobject: acc, status: "complete", profiled_at: Time.current)
+    FieldProfile.create!(object_profile: profile, sfield: sf, null_rate: 0.1)
+    RunDiff.create!(run_a: run, run_b: other, computed_at: Time.current, diff: {})
+
+    assert_nothing_raised { run.destroy! }
+
+    assert_equal 0, Sobject.where(extraction_run_id: run.id).count
+    assert_equal 0, Sfield.where(sobject_id: acc.id).count
+    assert_equal 0, SpicklistValue.where(sfield_id: sf.id).count
+    assert_equal 0, ObjectProfile.where(extraction_run_id: run.id).count
+    assert_equal 0, FieldProfile.where(object_profile_id: profile.id).count
+    assert_equal 0, Srelationship.where(extraction_run_id: run.id).count
+    assert_equal 0, RunDiff.where(run_a_id: run.id).count
+  end
+
   test "purgeable scope finds sensitive runs past retained_until" do
     expired = ExtractionRun.create!(api_version: "62.0", include_sensitive: true, seed_objects: [], retained_until: 1.day.ago)
     fresh = ExtractionRun.create!(api_version: "62.0", include_sensitive: true, seed_objects: [], retained_until: 1.day.from_now)

@@ -6,6 +6,11 @@ class ExtractionRun < ApplicationRecord
   has_many :sobjects, dependent: :destroy
   has_many :srelationships, dependent: :destroy
   has_many :clusters, dependent: :destroy
+  # Destroy profiles before sobjects so field_profiles → sfields foreign keys
+  # are released first. Without this, run.destroy! fails when profiles exist.
+  has_many :object_profiles, dependent: :destroy
+  has_many :run_diffs_as_a, class_name: "RunDiff", foreign_key: :run_a_id, dependent: :destroy
+  has_many :run_diffs_as_b, class_name: "RunDiff", foreign_key: :run_b_id, dependent: :destroy
 
   validates :status, inclusion: { in: STATUSES }
   validates :api_version, presence: true
