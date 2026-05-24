@@ -1,0 +1,71 @@
+<% content_for(:title, "Diff #{@diff.id}") %>
+<nav class="text-sm text-slate-600 mb-3"><%= link_to "New diff", new_diff_path, class: "underline" %> / show</nav>
+
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-semibold">Schema diff</h1>
+    <p class="text-sm text-slate-700 mt-1">
+      <span class="font-mono"><%= link_to @diff.run_a.directory_token, run_path(@diff.run_a), class: "text-blue-700 underline" %></span>
+      <span class="text-slate-500">→</span>
+      <span class="font-mono"><%= link_to @diff.run_b.directory_token, run_path(@diff.run_b), class: "text-blue-700 underline" %></span>
+      <span class="text-slate-500 ml-2">·</span>
+      <span class="text-slate-500"><%= @diff.total_changes %> change<%= "s" unless @diff.total_changes == 1 %></span>
+    </p>
+    <% if @diff.diff["api_version_a"] && @diff.diff["api_version_a"] != @diff.diff["api_version_b"] %>
+      <p class="mt-2 text-xs text-amber-900 bg-amber-50 border border-amber-200 px-2 py-1 inline-block rounded">
+        Cross-API-version: <%= @diff.diff["api_version_a"] %> → <%= @diff.diff["api_version_b"] %>
+      </p>
+    <% end %>
+  </div>
+  <%= link_to "Download Markdown", diff_path(@diff, format: :md), class: "rounded bg-slate-200 px-3 py-2 text-sm" %>
+</div>
+
+<% if @diff.empty? %>
+  <div class="rounded border border-slate-200 bg-white p-6 text-slate-700">No differences between these runs.</div>
+<% else %>
+  <% sections = [
+       ["Objects added",        :object_added,        ->(o) { content_tag(:code, o) }],
+       ["Objects removed",      :object_removed,      ->(o) { content_tag(:code, o) }],
+       ["Fields added",         :field_added,         ->(f) { "#{content_tag(:code, "#{f["object"]}.#{f["field"]}")} <span class='text-slate-500 text-xs'>(#{f["data_type"]})</span>".html_safe }],
+       ["Fields removed",       :field_removed,       ->(f) { "#{content_tag(:code, "#{f["object"]}.#{f["field"]}")} <span class='text-slate-500 text-xs'>(#{f["data_type"]})</span>".html_safe }],
+       ["Field type changed",   :field_type_changed,  ->(f) { "#{content_tag(:code, "#{f["object"]}.#{f["field"]}")}: <code>#{f["from"]}</code> → <code>#{f["to"]}</code>".html_safe }],
+       ["Field length changed", :field_length_changed,->(f) { "#{content_tag(:code, "#{f["object"]}.#{f["field"]}")}: #{f["from"]} → #{f["to"]}".html_safe }],
+       ["Picklist values added",   :picklist_values_added,   ->(p) { "#{content_tag(:code, "#{p["object"]}.#{p["field"]}")}: #{Array(p["values"]).join(", ")}".html_safe }],
+       ["Picklist values removed", :picklist_values_removed, ->(p) { "#{content_tag(:code, "#{p["object"]}.#{p["field"]}")}: #{Array(p["values"]).join(", ")}".html_safe }],
+       ["Relationships added",   :relationship_added,   ->(r) { "#{content_tag(:code, "#{r["source"]} → #{r["target"] || "(polymorphic)"}")}".html_safe }],
+       ["Relationships removed", :relationship_removed, ->(r) { "#{content_tag(:code, "#{r["source"]} → #{r["target"] || "(polymorphic)"}")}".html_safe }],
+       ["Formula logic changed", :formula_logic_changed,->(f) { content_tag(:code, "#{f["object"]}.#{f["field"]}") }],
+     ] %>
+
+  <div class="space-y-3">
+    <% sections.each do |label, key, formatter| %>
+      <% items = @diff.category(key) %>
+      <% next if items.empty? %>
+      <details class="rounded border border-slate-200 bg-white" open>
+        <summary class="cursor-pointer px-4 py-2 flex items-center justify-between text-sm font-medium text-slate-800">
+          <span><%= label %></span>
+          <span class="text-xs text-slate-500"><%= items.size %></span>
+        </summary>
+        <ul class="border-t border-slate-100 divide-y divide-slate-100 text-sm">
+          <% items.each do |item| %>
+            <li class="px-4 py-2 font-mono text-xs text-slate-700"><%= formatter.call(item) %></li>
+          <% end %>
+        </ul>
+      </details>
+    <% end %>
+
+    <% pkgs = @diff.installed_package_changes %>
+    <% if Array(pkgs["added"]).any? || Array(pkgs["removed"]).any? || Array(pkgs["version_changed"]).any? %>
+      <details class="rounded border border-slate-200 bg-white" open>
+        <summary class="cursor-pointer px-4 py-2 text-sm font-medium text-slate-800">Installed packages</summary>
+        <ul class="border-t border-slate-100 divide-y divide-slate-100 text-sm">
+          <% Array(pkgs["added"]).each do |p| %><li class="px-4 py-2 font-mono text-xs"><span class="text-emerald-700">+</span> <%= p %></li><% end %>
+          <% Array(pkgs["removed"]).each do |p| %><li class="px-4 py-2 font-mono text-xs"><span class="text-rose-700">−</span> <%= p %></li><% end %>
+          <% Array(pkgs["version_changed"]).each do |p| %>
+            <li class="px-4 py-2 font-mono text-xs"><code><%= p["namespace"] %></code>: <%= p["from"] %> → <%= p["to"] %></li>
+          <% end %>
+        </ul>
+      </details>
+    <% end %>
+  </div>
+<% end %>

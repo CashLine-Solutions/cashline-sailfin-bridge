@@ -27,6 +27,8 @@ Rails.application.routes.draw do
     get :unused_fields
   end
 
+  resources :diffs, only: [:new, :create, :show]
+
   get "up" => "rails/health#show", as: :rails_health_check
 
   authenticated_admin = ->(request) { AdminConstraint.matches?(request) }

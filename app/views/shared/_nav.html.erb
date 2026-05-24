@@ -8,7 +8,8 @@
              ["Objects", :objects_path],
              ["ERDs", :erds_path],
              ["Graph", :graph_path],
-             ["Reports", :reports_hub_orphan_path]
+             ["Reports", :reports_hub_orphan_path],
+             ["Diff", :new_diff_path]
            ] %>
         <% nav_items.each do |label, path_helper| %>
           <% next unless respond_to?(path_helper) %>
