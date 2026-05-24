@@ -12,7 +12,11 @@ class SobjectPolicy < ApplicationPolicy
   class Scope < ApplicationPolicy::Scope
     def resolve
       return scope.none if user.nil?
-      scope
+      return scope if user.sensitive_data_access?
+      # Defense-in-depth: even though ActiveRun gates `current_run` through
+      # ExtractionRunPolicy, scope filtering ensures a manual Sobject query
+      # in a future controller path can't leak rows belonging to sensitive runs.
+      scope.joins(:extraction_run).where(extraction_runs: { include_sensitive: false })
     end
   end
 end

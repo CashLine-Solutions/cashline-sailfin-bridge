@@ -12,6 +12,11 @@ module ActiveRun
     return if params[:run].blank?
     run = ExtractionRun.find_by(id: params[:run])
     return unless run
+    # Gate run binding through ExtractionRunPolicy so a ?run=<sensitive_id>
+    # query param cannot bypass the sensitivity check that controllers
+    # downstream rely on. If the user can't see this run, fall through to
+    # the session/default lookup as if no param was provided.
+    return unless ExtractionRunPolicy.new(Current.user, run).show?
     @active_run_override = run
   end
 
@@ -21,11 +26,17 @@ module ActiveRun
   end
 
   def load_current_run
-    if session[:active_run_id].present?
-      run = ExtractionRun.find_by(id: session[:active_run_id])
-      return run if run
-    end
-    ExtractionRun.where(status: %w[complete complete_with_warnings]).order(completed_at: :desc).first
+    candidate = if session[:active_run_id].present?
+                  ExtractionRun.find_by(id: session[:active_run_id])
+                end
+    candidate ||= viewable_runs.where(status: %w[complete complete_with_warnings]).order(completed_at: :desc).first
+    return nil if candidate.nil?
+    return candidate if ExtractionRunPolicy.new(Current.user, candidate).show?
+    nil
+  end
+
+  def viewable_runs
+    ExtractionRunPolicy::Scope.new(Current.user, ExtractionRun.all).resolve
   end
 
   def active_run_id

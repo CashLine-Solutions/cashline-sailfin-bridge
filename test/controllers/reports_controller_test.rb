@@ -48,4 +48,40 @@ class ReportsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match("AlwaysNull", response.body)
   end
+
+  test "hub_orphan blocks ?run=<sensitive_id> for users without sensitive_data_access" do
+    sensitive_run = ExtractionRun.create!(api_version: "62.0", user: @user, seed_objects: %w[Account], status: "complete", completed_at: Time.current, include_sensitive: true)
+    Sobject.create!(extraction_run: sensitive_run, api_name: "SecretObj", raw_describe: {})
+
+    sign_in(@user)
+    get reports_hub_orphan_path(run: sensitive_run.id)
+
+    refute_match("SecretObj", response.body, "Sensitive sobject names must not leak via ?run param to users without sensitive_data_access")
+  end
+
+  test "unused_fields blocks ?run=<sensitive_id> for users without sensitive_data_access" do
+    sensitive_run = ExtractionRun.create!(api_version: "62.0", user: @user, seed_objects: %w[Account], status: "complete", completed_at: Time.current, include_sensitive: true)
+    so = Sobject.create!(extraction_run: sensitive_run, api_name: "SecretObj", raw_describe: {})
+    sf = Sfield.create!(sobject: so, api_name: "SecretField", data_type: "string", sensitivity: "pii", raw_describe: {})
+    profile = ObjectProfile.create!(extraction_run: sensitive_run, sobject: so, status: "complete", profiled_at: Time.current)
+    FieldProfile.create!(object_profile: profile, sfield: sf, null_rate: 1.0, distinct_count: 0)
+
+    sign_in(@user)
+    get reports_unused_fields_path(run: sensitive_run.id)
+
+    refute_match("SecretField", response.body, "Sensitive field names must not leak via ?run param to users without sensitive_data_access"
+    )
+  end
+
+  test "hub_orphan permits sensitive run for users with sensitive_data_access" do
+    privileged = User.create!(email_address: "p@example.com", password: "secret-pass-1", role: :analyst, sensitive_data_access: true)
+    sensitive_run = ExtractionRun.create!(api_version: "62.0", user: privileged, seed_objects: %w[Account], status: "complete", completed_at: Time.current, include_sensitive: true)
+    Sobject.create!(extraction_run: sensitive_run, api_name: "SensitiveObj", raw_describe: {})
+
+    sign_in(privileged)
+    get reports_hub_orphan_path(run: sensitive_run.id)
+
+    assert_response :success
+    assert_match("SensitiveObj", response.body)
+  end
 end

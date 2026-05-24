@@ -2,7 +2,11 @@ class GraphController < ApplicationController
   before_action :load_run
 
   def show
-    skip_authorization_if_needed
+    if @run.nil?
+      skip_authorization
+    else
+      authorize @run, :show?
+    end
   end
 
   def data
@@ -10,7 +14,7 @@ class GraphController < ApplicationController
       skip_authorization
       return render(json: { nodes: [], edges: [] })
     end
-    authorize :graph, :show?
+    authorize @run, :show?
 
     sobjects = Sobject.where(extraction_run: @run).to_a
     cluster_by_sobject = ClusterAssignment.joins(:cluster).where(clusters: { extraction_run_id: @run.id }).pluck(:sobject_id, :cluster_id).to_h
@@ -40,13 +44,5 @@ class GraphController < ApplicationController
 
   def load_run
     @run = current_run
-  end
-
-  def skip_authorization_if_needed
-    if @run.nil?
-      skip_authorization
-    else
-      authorize :graph, :show?
-    end
   end
 end

@@ -29,4 +29,29 @@ class GraphControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, body["edges"].size
     assert_equal @a.id, body["edges"].first["source"]
   end
+
+  test "data blocks ?run=<sensitive_id> for users without sensitive_data_access" do
+    sensitive = ExtractionRun.create!(api_version: "62.0", user: @user, seed_objects: %w[Account], include_sensitive: true, status: "complete", completed_at: Time.current)
+    Sobject.create!(extraction_run: sensitive, api_name: "SensitiveObj", raw_describe: {})
+
+    sign_in(@user)
+    get data_graph_path(run: sensitive.id), headers: { "Accept" => "application/json" }
+
+    body = JSON.parse(response.body)
+    refute body["nodes"].any? { |n| n["label"] == "SensitiveObj" },
+           "Sensitive sobject names must not leak through /graph/data?run= for users without sensitive_data_access"
+  end
+
+  test "data permits sensitive run for users with sensitive_data_access" do
+    privileged = User.create!(email_address: "gp@example.com", password: "secret-pass-1", role: :analyst, sensitive_data_access: true)
+    sensitive = ExtractionRun.create!(api_version: "62.0", user: privileged, seed_objects: %w[Account], include_sensitive: true, status: "complete", completed_at: Time.current)
+    Sobject.create!(extraction_run: sensitive, api_name: "SensitiveObj", raw_describe: {})
+
+    sign_in(privileged)
+    get data_graph_path(run: sensitive.id), headers: { "Accept" => "application/json" }
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert body["nodes"].any? { |n| n["label"] == "SensitiveObj" }
+  end
 end

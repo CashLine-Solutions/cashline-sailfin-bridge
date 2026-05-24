@@ -4,11 +4,17 @@ class ClusterPolicy < ApplicationPolicy
   end
 
   def show?
-    user.present?
+    return false unless user.present?
+    return true if record.is_a?(Class)
+    return true unless record.extraction_run&.include_sensitive
+    user.sensitive_data_access?
   end
 
   def edit?
-    user.present? && (user.analyst? || user.admin?)
+    return false unless user.present? && (user.analyst? || user.admin?)
+    return true if record.is_a?(Class)
+    return true unless record.extraction_run&.include_sensitive
+    user.sensitive_data_access?
   end
 
   alias_method :rename?, :edit?
@@ -18,7 +24,8 @@ class ClusterPolicy < ApplicationPolicy
   class Scope < ApplicationPolicy::Scope
     def resolve
       return scope.none if user.nil?
-      scope
+      return scope if user.sensitive_data_access?
+      scope.joins(:extraction_run).where(extraction_runs: { include_sensitive: false })
     end
   end
 end

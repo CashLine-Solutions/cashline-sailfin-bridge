@@ -29,7 +29,8 @@ class ExtractionRunPolicy < ApplicationPolicy
   class Scope < ApplicationPolicy::Scope
     def resolve
       return scope.none if user.nil?
-      scope.all
+      return scope.all if user.sensitive_data_access?
+      scope.where(include_sensitive: false)
     end
   end
 end

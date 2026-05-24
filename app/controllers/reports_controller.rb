@@ -2,8 +2,11 @@ class ReportsController < ApplicationController
   before_action :load_run
 
   def hub_orphan
-    skip_authorization
-    return render :hub_orphan if @run.nil?
+    if @run.nil?
+      skip_authorization
+      return render :hub_orphan
+    end
+    authorize @run, :show?
 
     rows = ActiveRecord::Base.connection.select_all(<<~SQL.squish, "hub_orphan", [@run.id])
       SELECT s.id, s.api_name, s.namespace_prefix, s.custom,
@@ -35,8 +38,11 @@ class ReportsController < ApplicationController
   end
 
   def unused_fields
-    skip_authorization
-    return render :unused_fields if @run.nil?
+    if @run.nil?
+      skip_authorization
+      return render :unused_fields
+    end
+    authorize @run, :show?
 
     threshold = params.fetch(:threshold, "0.99").to_f
     @threshold = threshold
