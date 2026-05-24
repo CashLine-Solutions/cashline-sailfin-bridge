@@ -13,12 +13,65 @@
     <p class="text-slate-700">No active run selected. <%= link_to "Pick one", runs_path, class: "text-blue-700 underline" %>.</p>
   </div>
 <% else %>
-  <%= form_with url: objects_path, method: :get, local: true, class: "mb-4 flex items-center gap-3 text-sm" do %>
-    <%= hidden_field_tag :run, @run.id %>
-    <%= text_field_tag :q, params[:q], placeholder: "Search api name", class: "rounded border-slate-300" %>
-    <%= select_tag :namespace, options_for_select([["All namespaces", ""], ["Standard (no prefix)", "standard"]], params[:namespace]), class: "rounded border-slate-300" %>
-    <%= submit_tag "Filter", class: "rounded bg-slate-200 px-3 py-1.5" %>
-  <% end %>
+  <%# Filter state lives in URL params so any view is shareable. Building a
+      base param hash makes "preserve other filters" easy on each chip. %>
+  <% base_params = { run: @run.id, q: params[:q], namespace: params[:namespace],
+                     custom: params[:custom], sensitivity: params[:sensitivity],
+                     min_fields: params[:min_fields] }.compact_blank %>
+  <% chip_active = "rounded bg-slate-900 text-white px-3 py-1 text-xs font-medium" %>
+  <% chip_inactive = "rounded border border-slate-300 bg-white text-slate-700 hover:border-slate-500 px-3 py-1 text-xs" %>
+
+  <div class="mb-4 space-y-3">
+    <%= form_with url: objects_path, method: :get, local: true, class: "flex items-center gap-3 text-sm flex-wrap" do %>
+      <%= hidden_field_tag :run, @run.id %>
+      <% %i[namespace custom sensitivity min_fields].each do |key| %>
+        <%= hidden_field_tag key, params[key] if params[key].present? %>
+      <% end %>
+      <%= text_field_tag :q, params[:q], placeholder: "Search api name", class: "rounded border-slate-300" %>
+      <%= submit_tag "Search", class: "rounded bg-slate-200 px-3 py-1.5" %>
+      <% if params[:q].present? %>
+        <%= link_to "× clear", objects_path(base_params.except(:q)), class: "text-xs text-slate-500 underline" %>
+      <% end %>
+    <% end %>
+
+    <div class="flex items-center gap-2 text-xs flex-wrap">
+      <span class="text-slate-500 font-medium">Namespace:</span>
+      <%= link_to "All", objects_path(base_params.except(:namespace)), class: (params[:namespace].blank? ? chip_active : chip_inactive) %>
+      <% @namespace_facets.sort_by { |_ns, count| -count }.each do |ns, count| %>
+        <% active = params[:namespace].to_s == ns.to_s || (ns == "standard" && params[:namespace] == "standard") %>
+        <%= link_to "#{ns} (#{count})", objects_path(base_params.merge(namespace: ns)), class: (active ? chip_active : chip_inactive) %>
+      <% end %>
+    </div>
+
+    <div class="flex items-center gap-2 text-xs flex-wrap">
+      <span class="text-slate-500 font-medium">Filters:</span>
+      <%= link_to "Custom only",
+                  objects_path(params[:custom] == "1" ? base_params.except(:custom) : base_params.merge(custom: "1")),
+                  class: (params[:custom] == "1" ? chip_active : chip_inactive) %>
+      <%= link_to "Has PII",
+                  objects_path(params[:sensitivity] == "pii" ? base_params.except(:sensitivity) : base_params.merge(sensitivity: "pii")),
+                  class: (params[:sensitivity] == "pii" ? chip_active : chip_inactive) %>
+      <%= link_to "Has Financial",
+                  objects_path(params[:sensitivity] == "financial" ? base_params.except(:sensitivity) : base_params.merge(sensitivity: "financial")),
+                  class: (params[:sensitivity] == "financial" ? chip_active : chip_inactive) %>
+      <%= link_to "Has any sensitive",
+                  objects_path(params[:sensitivity] == "any" ? base_params.except(:sensitivity) : base_params.merge(sensitivity: "any")),
+                  class: (params[:sensitivity] == "any" ? chip_active : chip_inactive) %>
+      <span class="text-slate-500 ml-2">Min fields:</span>
+      <% [10, 50, 100].each do |n| %>
+        <%= link_to "≥ #{n}",
+                    objects_path(params[:min_fields].to_i == n ? base_params.except(:min_fields) : base_params.merge(min_fields: n)),
+                    class: (params[:min_fields].to_i == n ? chip_active : chip_inactive) %>
+      <% end %>
+      <% if base_params.except(:run, :q).any? %>
+        <%= link_to "× clear filters",
+                    objects_path(run: @run.id, q: params[:q]),
+                    class: "text-xs text-rose-600 hover:text-rose-800 ml-2 underline" %>
+      <% end %>
+    </div>
+
+    <p class="text-xs text-slate-500"><%= pluralize(@sobjects.size, "object") %> shown</p>
+  </div>
 
   <div class="overflow-hidden rounded border border-slate-200 bg-white">
     <table class="min-w-full divide-y divide-slate-200 text-sm">

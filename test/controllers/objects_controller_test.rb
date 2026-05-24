@@ -25,6 +25,80 @@ class ObjectsControllerTest < ActionDispatch::IntegrationTest
     assert_match("Account", response.body)
   end
 
+  test "index filters by custom=1 (excludes standard objects)" do
+    standard = Sobject.create!(extraction_run: @run, api_name: "StandardThing", custom: false, raw_describe: {})
+    Sobject.create!(extraction_run: @run, api_name: "CustomThing__c", custom: true, raw_describe: {})
+
+    sign_in(@analyst)
+    post select_run_path(@run)
+    get objects_path(custom: "1")
+    assert_response :success
+    assert_match("CustomThing__c", response.body)
+    refute_match("StandardThing", response.body)
+  end
+
+  test "index filters by sensitivity=pii (only sobjects with at least one pii field)" do
+    so_with_pii = Sobject.create!(extraction_run: @run, api_name: "HasPii", raw_describe: {})
+    Sfield.create!(sobject: so_with_pii, api_name: "PiiField", data_type: "email", sensitivity: "pii", raw_describe: {})
+    Sobject.create!(extraction_run: @run, api_name: "AllSafe", raw_describe: {}).tap do |s|
+      Sfield.create!(sobject: s, api_name: "Plain", data_type: "string", sensitivity: "safe", raw_describe: {})
+    end
+
+    sign_in(@analyst)
+    post select_run_path(@run)
+    get objects_path(sensitivity: "pii")
+    assert_response :success
+    assert_match("HasPii", response.body)
+    refute_match("AllSafe", response.body)
+  end
+
+  test "index filters by min_fields threshold" do
+    big = Sobject.create!(extraction_run: @run, api_name: "Big", raw_describe: {})
+    3.times { |i| Sfield.create!(sobject: big, api_name: "F#{i}", data_type: "string", sensitivity: "safe", raw_describe: {}) }
+    small = Sobject.create!(extraction_run: @run, api_name: "Small", raw_describe: {})
+    Sfield.create!(sobject: small, api_name: "Only", data_type: "string", sensitivity: "safe", raw_describe: {})
+
+    sign_in(@analyst)
+    post select_run_path(@run)
+    get objects_path(min_fields: "3")
+    assert_response :success
+    assert_match("Big", response.body)
+    refute_match(">Small<", response.body)
+  end
+
+  test "index filters compose (custom + sensitivity)" do
+    Sobject.create!(extraction_run: @run, api_name: "StandardPii", custom: false, raw_describe: {}).tap do |s|
+      Sfield.create!(sobject: s, api_name: "P", data_type: "email", sensitivity: "pii", raw_describe: {})
+    end
+    Sobject.create!(extraction_run: @run, api_name: "CustomPii__c", custom: true, raw_describe: {}).tap do |s|
+      Sfield.create!(sobject: s, api_name: "P", data_type: "email", sensitivity: "pii", raw_describe: {})
+    end
+    Sobject.create!(extraction_run: @run, api_name: "CustomSafe__c", custom: true, raw_describe: {}).tap do |s|
+      Sfield.create!(sobject: s, api_name: "P", data_type: "string", sensitivity: "safe", raw_describe: {})
+    end
+
+    sign_in(@analyst)
+    post select_run_path(@run)
+    get objects_path(custom: "1", sensitivity: "pii")
+    assert_response :success
+    assert_match("CustomPii__c", response.body)
+    refute_match("StandardPii", response.body)
+    refute_match("CustomSafe__c", response.body)
+  end
+
+  test "index renders namespace facet chips with counts" do
+    Sobject.create!(extraction_run: @run, api_name: "sfsrm__Foo", namespace_prefix: "sfsrm", raw_describe: {})
+    Sobject.create!(extraction_run: @run, api_name: "sfsrm__Bar", namespace_prefix: "sfsrm", raw_describe: {})
+    Sobject.create!(extraction_run: @run, api_name: "Standard", namespace_prefix: nil, raw_describe: {})
+
+    sign_in(@analyst)
+    post select_run_path(@run)
+    get objects_path
+    assert_response :success
+    assert_match(/sfsrm \(2\)/, response.body)
+    assert_match(/standard \(\d+\)/, response.body)
+  end
+
   test "show renders fields and relationships for the object" do
     sign_in(@analyst)
     get object_path(@sobject.api_name, run: @run.id)

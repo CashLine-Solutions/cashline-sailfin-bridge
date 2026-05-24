@@ -7,11 +7,36 @@ class ObjectsController < ApplicationController
     if @run.nil?
       @sobjects = policy_scope(Sobject.none)
       @sfield_counts = {}
+      @namespace_facets = {}
       return
     end
-    scope = policy_scope(Sobject.where(extraction_run: @run))
+    base = policy_scope(Sobject.where(extraction_run: @run))
+
+    # Facets reflect the unfiltered population so they don't vanish when a
+    # filter narrows the result set to zero. We do show counts of how many
+    # objects match each facet within the current other filters, though.
+    @namespace_facets = base.group(:namespace_prefix).count
+      .transform_keys { |k| k.presence || "standard" }
+
+    scope = base
     scope = scope.where("api_name ILIKE ?", "%#{params[:q]}%") if params[:q].present?
     scope = filter_namespace(scope, params[:namespace]) if params[:namespace].present?
+    scope = scope.where(custom: true) if params[:custom] == "1"
+
+    case params[:sensitivity]
+    when "pii"
+      scope = scope.where(id: Sfield.where(sensitivity: %w[pii pii_and_financial]).select(:sobject_id))
+    when "financial"
+      scope = scope.where(id: Sfield.where(sensitivity: %w[financial pii_and_financial]).select(:sobject_id))
+    when "any"
+      scope = scope.where(id: Sfield.where.not(sensitivity: %w[safe unknown_sensitivity]).select(:sobject_id))
+    end
+
+    if params[:min_fields].present?
+      threshold = params[:min_fields].to_i
+      scope = scope.where(id: Sfield.group(:sobject_id).having("COUNT(*) >= ?", threshold).select(:sobject_id)) if threshold.positive?
+    end
+
     @sobjects = scope.order(:api_name).to_a
     @sfield_counts = Sfield.where(sobject_id: @sobjects.map(&:id)).group(:sobject_id).count
   end
