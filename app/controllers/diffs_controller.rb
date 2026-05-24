@@ -1,6 +1,6 @@
 class DiffsController < ApplicationController
-  before_action :load_runs_for_form, only: [:new, :create]
-  before_action :load_diff, only: [:show]
+  before_action :load_runs_for_form, only: [ :new, :create ]
+  before_action :load_diff, only: [ :show ]
   after_action :verify_authorized
 
   def new

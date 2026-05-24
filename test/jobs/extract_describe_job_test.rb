@@ -65,7 +65,7 @@ class ExtractDescribeJobTest < ActiveJob::TestCase
     run = ExtractionRun.create!(
       api_version: "62.0",
       seed_objects: %w[Account],
-      walk_options: { "namespace_allowlist" => [nil], "standard_allowlist" => %w[Account User], "max_hops" => 2 }
+      walk_options: { "namespace_allowlist" => [ nil ], "standard_allowlist" => %w[Account User], "max_hops" => 2 }
     )
 
     ExtractDescribeJob.new.perform(run.id)
@@ -84,7 +84,7 @@ class ExtractDescribeJobTest < ActiveJob::TestCase
     run = ExtractionRun.create!(
       api_version: "62.0",
       seed_objects: %w[Account],
-      walk_options: { "namespace_allowlist" => [nil], "standard_allowlist" => %w[Account User], "max_hops" => 1 }
+      walk_options: { "namespace_allowlist" => [ nil ], "standard_allowlist" => %w[Account User], "max_hops" => 1 }
     )
 
     ExtractDescribeJob.new.perform(run.id)
@@ -114,10 +114,10 @@ class ExtractDescribeJobTest < ActiveJob::TestCase
     run = ExtractionRun.create!(
       api_version: "62.0",
       seed_objects: %w[Account],
-      walk_options: { "namespace_allowlist" => [nil], "standard_allowlist" => %w[Account User], "max_hops" => 1 }
+      walk_options: { "namespace_allowlist" => [ nil ], "standard_allowlist" => %w[Account User], "max_hops" => 1 }
     )
 
-    assert_enqueued_with(job: ExtractToolingJob, args: [run.id]) do
+    assert_enqueued_with(job: ExtractToolingJob, args: [ run.id ]) do
       ExtractDescribeJob.new.perform(run.id)
     end
   end

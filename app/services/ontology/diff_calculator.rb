@@ -129,7 +129,7 @@ module Ontology
     def load_relationships(run)
       run.srelationships
          .includes(:source_sobject, :target_sobject)
-         .map { |r| [r.source_sobject.api_name, r.target_sobject&.api_name, r.relationship_name, r.polymorphic] }
+         .map { |r| [ r.source_sobject.api_name, r.target_sobject&.api_name, r.relationship_name, r.polymorphic ] }
     end
 
     def relationship_record(arr)

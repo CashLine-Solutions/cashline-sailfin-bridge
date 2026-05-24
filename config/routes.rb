@@ -2,15 +2,15 @@ Rails.application.routes.draw do
   resource :session
   resources :passwords, param: :token
 
-  resources :runs, only: [:index, :show, :new, :create] do
+  resources :runs, only: [ :index, :show, :new, :create ] do
     member { post :select }
   end
 
-  resources :objects, only: [:index, :show], param: :api_name, constraints: { api_name: %r{[^/.]+} } do
+  resources :objects, only: [ :index, :show ], param: :api_name, constraints: { api_name: %r{[^/.]+} } do
     member { get :fields }
   end
 
-  resources :erds, only: [:index, :show], param: :slug, constraints: { slug: %r{[^/.]+} }
+  resources :erds, only: [ :index, :show ], param: :slug, constraints: { slug: %r{[^/.]+} }
   resources :clusters, only: [] do
     collection { get :edit }
     member do
@@ -20,7 +20,7 @@ Rails.application.routes.draw do
     end
   end
 
-  resource :graph, only: [:show], controller: "graph" do
+  resource :graph, only: [ :show ], controller: "graph" do
     get :data, on: :collection
   end
 
@@ -29,7 +29,7 @@ Rails.application.routes.draw do
     get :unused_fields
   end
 
-  resources :diffs, only: [:new, :create, :show]
+  resources :diffs, only: [ :new, :create, :show ]
 
   get "up" => "rails/health#show", as: :rails_health_check
 

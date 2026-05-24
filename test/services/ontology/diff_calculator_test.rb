@@ -35,12 +35,12 @@ module Ontology
 
       diff = DiffCalculator.compute(@run_a, @run_b)
 
-      assert_equal [{ "object" => "Account", "field" => "Status", "values" => ["Resolved"] }], diff["picklist_values_added"]
-      assert_equal [{ "object" => "Account", "field" => "Status", "values" => ["Closed"] }], diff["picklist_values_removed"]
+      assert_equal [ { "object" => "Account", "field" => "Status", "values" => [ "Resolved" ] } ], diff["picklist_values_added"]
+      assert_equal [ { "object" => "Account", "field" => "Status", "values" => [ "Closed" ] } ], diff["picklist_values_removed"]
     end
 
     test "identical schemas produce an empty diff" do
-      [@run_a, @run_b].each do |run|
+      [ @run_a, @run_b ].each do |run|
         acc = Sobject.create!(extraction_run: run, api_name: "Account", raw_describe: {})
         Sfield.create!(sobject: acc, api_name: "Name", data_type: "string", raw_describe: {})
         Sfield.create!(sobject: acc, api_name: "Email", data_type: "email", raw_describe: {})
@@ -73,7 +73,7 @@ module Ontology
                      calculated_formula: "Amount - Tax", raw_describe: {})
 
       diff = DiffCalculator.compute(@run_a, @run_b)
-      assert_equal [{ "object" => "Account", "field" => "Total__c" }], diff["formula_logic_changed"]
+      assert_equal [ { "object" => "Account", "field" => "Total__c" } ], diff["formula_logic_changed"]
     end
 
     test "object added and removed are categorized separately" do
@@ -81,12 +81,12 @@ module Ontology
       Sobject.create!(extraction_run: @run_b, api_name: "New", raw_describe: {})
 
       diff = DiffCalculator.compute(@run_a, @run_b)
-      assert_equal ["New"], diff["object_added"]
-      assert_equal ["Old"], diff["object_removed"]
+      assert_equal [ "New" ], diff["object_added"]
+      assert_equal [ "Old" ], diff["object_removed"]
     end
 
     test "relationship added between runs surfaces in relationship_added" do
-      [@run_a, @run_b].each do |run|
+      [ @run_a, @run_b ].each do |run|
         a = Sobject.create!(extraction_run: run, api_name: "Account", raw_describe: {})
         c = Sobject.create!(extraction_run: run, api_name: "Contact", raw_describe: {})
         if run == @run_b
@@ -113,9 +113,9 @@ module Ontology
 
       diff = DiffCalculator.compute(@run_a, @run_b)
 
-      assert_equal ["new_pkg"], diff["installed_package_changes"]["added"]
-      assert_equal ["legacy"], diff["installed_package_changes"]["removed"]
-      assert_equal [{ "namespace" => "sailfin", "from" => "1.0", "to" => "1.2" }],
+      assert_equal [ "new_pkg" ], diff["installed_package_changes"]["added"]
+      assert_equal [ "legacy" ], diff["installed_package_changes"]["removed"]
+      assert_equal [ { "namespace" => "sailfin", "from" => "1.0", "to" => "1.2" } ],
                    diff["installed_package_changes"]["version_changed"]
     end
 
@@ -140,9 +140,9 @@ module Ontology
       Sfield.create!(sobject: new_acc, api_name: "Name", data_type: "textarea", length: 255, raw_describe: {})
 
       diff = DiffCalculator.compute(@run_a, @run_b)
-      assert_equal [{ "object" => "Account", "field" => "Name", "from" => "string", "to" => "textarea" }],
+      assert_equal [ { "object" => "Account", "field" => "Name", "from" => "string", "to" => "textarea" } ],
                    diff["field_type_changed"]
-      assert_equal [{ "object" => "Account", "field" => "Name", "from" => 80, "to" => 255 }],
+      assert_equal [ { "object" => "Account", "field" => "Name", "from" => 80, "to" => 255 } ],
                    diff["field_length_changed"]
     end
 
@@ -150,7 +150,7 @@ module Ontology
       a_task = Sobject.create!(extraction_run: @run_a, api_name: "Task", raw_describe: {})
       a_acct = Sobject.create!(extraction_run: @run_a, api_name: "Account", raw_describe: {})
       Srelationship.create!(extraction_run: @run_a, source_sobject: a_task, target_sobject: a_acct,
-                            relationship_name: "What", polymorphic: false, reference_to_api_names: ["Account"])
+                            relationship_name: "What", polymorphic: false, reference_to_api_names: [ "Account" ])
 
       b_task = Sobject.create!(extraction_run: @run_b, api_name: "Task", raw_describe: {})
       Sobject.create!(extraction_run: @run_b, api_name: "Account", raw_describe: {})

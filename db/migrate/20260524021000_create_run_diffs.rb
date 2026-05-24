@@ -7,6 +7,6 @@ class CreateRunDiffs < ActiveRecord::Migration[8.1]
       t.jsonb :diff, null: false, default: {}
       t.timestamps
     end
-    add_index :run_diffs, [:run_a_id, :run_b_id], unique: true
+    add_index :run_diffs, [ :run_a_id, :run_b_id ], unique: true
   end
 end

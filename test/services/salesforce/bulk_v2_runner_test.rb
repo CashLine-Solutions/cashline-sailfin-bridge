@@ -14,12 +14,12 @@ module Salesforce
       attr_reader :calls
 
       def post(path)
-        @calls << [:post, path]
+        @calls << [ :post, path ]
         next_response(:post, path)
       end
 
       def get(path)
-        @calls << [:get, path]
+        @calls << [ :get, path ]
         next_response(:get, path)
       end
 
@@ -36,7 +36,7 @@ module Salesforce
     Response = Struct.new(:status, :body, :headers, keyword_init: true)
 
     class StubFactory
-      def initialize(token:, on_invalidate: ->{})
+      def initialize(token:, on_invalidate: -> { })
         @token = token
         @on_invalidate = on_invalidate
       end
@@ -48,7 +48,7 @@ module Salesforce
     setup do
       @token = OpenStruct.new(access_token: "abc", instance_url: "https://x.salesforce.com")
       @factory = StubFactory.new(token: @token)
-      @runner = BulkV2Runner.new(client_factory: @factory, poll_interval: 0, sleep_proc: ->(_) {})
+      @runner = BulkV2Runner.new(client_factory: @factory, poll_interval: 0, sleep_proc: ->(_) { })
     end
 
     test "happy path: submit → poll twice → JobComplete → fetch one chunk of rows" do
@@ -96,15 +96,15 @@ module Salesforce
       @runner.define_singleton_method(:connection) { |_| stub_conn }
 
       err = assert_raises(BulkV2Runner::JobFailedError) do
-        @runner.query(soql: "BAD SOQL", on_chunk: ->(_) {})
+        @runner.query(soql: "BAD SOQL", on_chunk: ->(_) { })
       end
       assert_match(/soql syntax/, err.message)
     end
 
     test "401 on submit invalidates token and retries once" do
       invalidated = false
-      factory = StubFactory.new(token: @token, on_invalidate: ->{ invalidated = true })
-      runner = BulkV2Runner.new(client_factory: factory, poll_interval: 0, sleep_proc: ->(_) {})
+      factory = StubFactory.new(token: @token, on_invalidate: -> { invalidated = true })
+      runner = BulkV2Runner.new(client_factory: factory, poll_interval: 0, sleep_proc: ->(_) { })
 
       script = [
         { method: :post, path_match: "/jobs/query", response: Response.new(status: 401, body: "", headers: {}) },
@@ -115,7 +115,7 @@ module Salesforce
       stub_conn = StubConnection.new(script)
       runner.define_singleton_method(:connection) { |_| stub_conn }
 
-      assert_nothing_raised { runner.query(soql: "SELECT Id FROM Account", on_chunk: ->(_) {}) }
+      assert_nothing_raised { runner.query(soql: "SELECT Id FROM Account", on_chunk: ->(_) { }) }
       assert invalidated, "expected token cache to be invalidated on 401"
     end
 
@@ -127,7 +127,7 @@ module Salesforce
       @runner.define_singleton_method(:connection) { |_| stub_conn }
 
       err = assert_raises(BulkV2Runner::JobFailedError) do
-        @runner.query(soql: "BAD", on_chunk: ->(_) {})
+        @runner.query(soql: "BAD", on_chunk: ->(_) { })
       end
       assert_match(/400/, err.message)
     end

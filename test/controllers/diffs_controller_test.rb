@@ -39,8 +39,8 @@ class DiffsControllerTest < ActionDispatch::IntegrationTest
     end
     diff = RunDiff.order(:id).last
     assert_redirected_to diff_path(diff)
-    assert_equal ["New"], diff.diff["object_added"]
-    assert_equal ["Old"], diff.diff["object_removed"]
+    assert_equal [ "New" ], diff.diff["object_added"]
+    assert_equal [ "Old" ], diff.diff["object_removed"]
   end
 
   test "creating a diff with the same run twice fails" do

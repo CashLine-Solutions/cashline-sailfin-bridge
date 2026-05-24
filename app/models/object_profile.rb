@@ -44,7 +44,7 @@ class ObjectProfile < ApplicationRecord
 
   def broadcast_run_panel
     extraction_run.broadcast_replace_to(
-      [extraction_run, extraction_run.user],
+      [ extraction_run, extraction_run.user ],
       target: ActionView::RecordIdentifier.dom_id(extraction_run, :panel),
       partial: "runs/panel",
       locals: { run: extraction_run }

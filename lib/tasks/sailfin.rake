@@ -58,7 +58,7 @@ namespace :sailfin do
     puts "Found #{Array(entries).size} visible objects across #{by_ns.size} namespaces.\n\n"
     by_ns.sort_by { |_ns, count| -count }.each do |ns, count|
       tag = ns == "(standard)" ? "standard" : "managed:#{ns}"
-      puts "%5d  %-30s  %s" % [count, tag, examples[ns].first(3).join(", ")]
+      puts "%5d  %-30s  %s" % [ count, tag, examples[ns].first(3).join(", ") ]
     end
 
     puts <<~NOTE

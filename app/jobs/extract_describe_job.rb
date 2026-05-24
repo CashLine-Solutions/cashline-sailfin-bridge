@@ -10,7 +10,7 @@ class ExtractDescribeJob < ApplicationJob
   queue_as :default
 
   DEFAULT_WALK_OPTIONS = {
-    "namespace_allowlist" => [nil, ""],
+    "namespace_allowlist" => [ nil, "" ],
     "standard_allowlist" => %w[Account Contact User RecordType Opportunity Task Event],
     "max_hops" => 3
   }.freeze

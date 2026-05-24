@@ -105,7 +105,7 @@ namespace :ontology do
         status: "complete",
         started_at: completed_minutes_ago.minutes.ago - 2.minutes,
         completed_at: completed_minutes_ago.minutes.ago,
-        installed_packages: [{ "namespace" => NAMESPACE, "version" => label == "demo-baseline" ? "2.4" : "2.5" }],
+        installed_packages: [ { "namespace" => NAMESPACE, "version" => label == "demo-baseline" ? "2.4" : "2.5" } ],
         directory_token: "#{label}-#{SecureRandom.hex(2)}"
       )
       run.save!
@@ -179,25 +179,25 @@ namespace :ontology do
     def field_shape(fkey)
       case fkey
       when :email, :firstname, :lastname, :username, :name, :customer_name, :region, :sku, :notes, :invoice_number
-        ["string", 80, false, nil]
+        [ "string", 80, false, nil ]
       when :phone, :ssn_last4, :tax_id
-        ["string", 40, false, nil]
+        [ "string", 40, false, nil ]
       when :amount, :unit_price
-        ["currency", nil, false, nil]
+        [ "currency", nil, false, nil ]
       when :quantity
-        ["double", nil, false, nil]
+        [ "double", nil, false, nil ]
       when :due_date, :close_date, :period_start, :period_end, :created_date
-        ["datetime", nil, false, nil]
+        [ "datetime", nil, false, nil ]
       when :status, :brand_status, :stage, :credit_rating, :method, :industry
-        ["picklist", 40, false, nil]
+        [ "picklist", 40, false, nil ]
       when :owner, :account_ref, :customer_ref, :invoice_ref
-        ["reference", 18, false, nil]
+        [ "reference", 18, false, nil ]
       when :invoice_total_calc
-        ["currency", nil, true, "Amount + Tax"]
+        [ "currency", nil, true, "Amount + Tax" ]
       when :line_total_calc
-        ["currency", nil, true, "UnitPrice * Quantity"]
+        [ "currency", nil, true, "UnitPrice * Quantity" ]
       else
-        ["string", 255, false, nil]
+        [ "string", 255, false, nil ]
       end
     end
 
@@ -207,28 +207,28 @@ namespace :ontology do
 
     def salesforce_api_name(sobject, fkey)
       base = case fkey
-             when :firstname then "FirstName"
-             when :lastname  then "LastName"
-             when :owner     then "OwnerId"
-             when :account_ref then "AccountId"
-             when :customer_ref then "Customer__c"
-             when :invoice_ref then "Invoice__c"
-             when :due_date then "DueDate__c"
-             when :created_date then "CreatedDate"
-             else
+      when :firstname then "FirstName"
+      when :lastname  then "LastName"
+      when :owner     then "OwnerId"
+      when :account_ref then "AccountId"
+      when :customer_ref then "Customer__c"
+      when :invoice_ref then "Invoice__c"
+      when :due_date then "DueDate__c"
+      when :created_date then "CreatedDate"
+      else
                fkey.to_s.split("_").map(&:capitalize).join
-             end
+      end
       sobject.custom ? "#{base}__c" : base
     end
 
     def seed_relationships!(run, sobjects)
       pairs = [
-        ["Contact",                    "Account",                       "AccountId"],
-        ["Opportunity",                "Account",                       "AccountId"],
-        ["#{NAMESPACE}__Invoice__c",   "#{NAMESPACE}__Customer__c",     "Customer__c"],
-        ["#{NAMESPACE}__Invoice_Line__c", "#{NAMESPACE}__Invoice__c",   "Invoice__c"],
-        ["#{NAMESPACE}__Payment__c",   "#{NAMESPACE}__Invoice__c",      "Invoice__c"],
-        ["#{NAMESPACE}__Customer__c",  "Account",                       "AccountId"]
+        [ "Contact",                    "Account",                       "AccountId" ],
+        [ "Opportunity",                "Account",                       "AccountId" ],
+        [ "#{NAMESPACE}__Invoice__c",   "#{NAMESPACE}__Customer__c",     "Customer__c" ],
+        [ "#{NAMESPACE}__Invoice_Line__c", "#{NAMESPACE}__Invoice__c",   "Invoice__c" ],
+        [ "#{NAMESPACE}__Payment__c",   "#{NAMESPACE}__Invoice__c",      "Invoice__c" ],
+        [ "#{NAMESPACE}__Customer__c",  "Account",                       "AccountId" ]
       ]
       pairs.each do |src, tgt, _name|
         next unless sobjects[src] && sobjects[tgt]
@@ -301,7 +301,7 @@ namespace :ontology do
       when "string", "picklist"
         (sfield.spicklist_values.first(3).map(&:value)).presence || %w[Sample-1 Sample-2 Sample-3]
       when "currency", "double"
-        [rand(100..10_000).to_s, rand(100..10_000).to_s, rand(100..10_000).to_s]
+        [ rand(100..10_000).to_s, rand(100..10_000).to_s, rand(100..10_000).to_s ]
       else
         []
       end

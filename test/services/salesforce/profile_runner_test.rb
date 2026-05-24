@@ -25,7 +25,7 @@ module Salesforce
       end
 
       def query(_soql)
-        [{ "RecordCount" => @record_count }].each
+        [ { "RecordCount" => @record_count } ].each
       end
     end
 
@@ -39,16 +39,16 @@ module Salesforce
 
     test "computes null_rate from null_count / total" do
       routes = [
-        ["FROM Contact WHERE Title = null", [{ "c" => 80 }]],
-        ["FROM Contact WHERE Email = null", [{ "c" => 0 }]],
-        ["COUNT_DISTINCT(Title)", [{ "c" => 5 }]],
-        ["COUNT_DISTINCT(Email)", [{ "c" => 12 }]],
-        ["SELECT Title FROM Contact", (1..10).map { |i| { "Title" => "T#{i}" } }],
-        ["SELECT Email FROM Contact", (1..10).map { |i| { "Email" => "e#{i}@x.com" } }],
+        [ "FROM Contact WHERE Title = null", [ { "c" => 80 } ] ],
+        [ "FROM Contact WHERE Email = null", [ { "c" => 0 } ] ],
+        [ "COUNT_DISTINCT(Title)", [ { "c" => 5 } ] ],
+        [ "COUNT_DISTINCT(Email)", [ { "c" => 12 } ] ],
+        [ "SELECT Title FROM Contact", (1..10).map { |i| { "Title" => "T#{i}" } } ],
+        [ "SELECT Email FROM Contact", (1..10).map { |i| { "Email" => "e#{i}@x.com" } } ],
         # Top-N + sample queries (won't be hit for PII since policy denies, but
         # will be for safe Title even if policy says allowed-via-safe).
-        ["GROUP BY Title", [{ "v" => "Engineer", "c" => 7 }]],
-        ["GROUP BY Email", [{ "v" => "e1@x.com", "c" => 1 }]]
+        [ "GROUP BY Title", [ { "v" => "Engineer", "c" => 7 } ] ],
+        [ "GROUP BY Email", [ { "v" => "e1@x.com", "c" => 1 } ] ]
       ]
 
       runner = ProfileRunner.new(rest_client: StubRest.new(routes), tooling_client: StubTooling.new(record_count: 100))
@@ -65,12 +65,12 @@ module Salesforce
 
     test "all-null field → null_rate 1.0 and distinct_count 0" do
       routes = [
-        ["FROM Contact WHERE Title = null", [{ "c" => 100 }]],
-        ["FROM Contact WHERE Email = null", [{ "c" => 100 }]],
-        ["COUNT_DISTINCT(Title)", [{ "c" => 0 }]],
-        ["COUNT_DISTINCT(Email)", [{ "c" => 0 }]],
-        ["SELECT Title FROM Contact", []],
-        ["SELECT Email FROM Contact", []]
+        [ "FROM Contact WHERE Title = null", [ { "c" => 100 } ] ],
+        [ "FROM Contact WHERE Email = null", [ { "c" => 100 } ] ],
+        [ "COUNT_DISTINCT(Title)", [ { "c" => 0 } ] ],
+        [ "COUNT_DISTINCT(Email)", [ { "c" => 0 } ] ],
+        [ "SELECT Title FROM Contact", [] ],
+        [ "SELECT Email FROM Contact", [] ]
       ]
       runner = ProfileRunner.new(rest_client: StubRest.new(routes), tooling_client: StubTooling.new(record_count: 100))
       policy = Ontology::ProfilingPolicy.new(extraction_run: @run, user: @user)
@@ -85,18 +85,18 @@ module Salesforce
       tiny_pii = Sfield.create!(sobject: @sobject, api_name: "RareField", data_type: "string", sensitivity: "pii", raw_describe: {})
 
       routes = [
-        ["FROM Contact WHERE Title = null", [{ "c" => 0 }]],
-        ["FROM Contact WHERE Email = null", [{ "c" => 0 }]],
-        ["FROM Contact WHERE RareField = null", [{ "c" => 0 }]],
-        ["COUNT_DISTINCT(Title)", [{ "c" => 10 }]],
-        ["COUNT_DISTINCT(Email)", [{ "c" => 10 }]],
-        ["COUNT_DISTINCT(RareField)", [{ "c" => 3 }]],
-        ["SELECT Title FROM Contact", []],
-        ["SELECT Email FROM Contact", []],
-        ["SELECT RareField FROM Contact", []],
-        ["GROUP BY Title", [{ "v" => "x", "c" => 1 }]],
-        ["GROUP BY Email", [{ "v" => "y", "c" => 1 }]],
-        ["GROUP BY RareField", [{ "v" => "z", "c" => 1 }]]
+        [ "FROM Contact WHERE Title = null", [ { "c" => 0 } ] ],
+        [ "FROM Contact WHERE Email = null", [ { "c" => 0 } ] ],
+        [ "FROM Contact WHERE RareField = null", [ { "c" => 0 } ] ],
+        [ "COUNT_DISTINCT(Title)", [ { "c" => 10 } ] ],
+        [ "COUNT_DISTINCT(Email)", [ { "c" => 10 } ] ],
+        [ "COUNT_DISTINCT(RareField)", [ { "c" => 3 } ] ],
+        [ "SELECT Title FROM Contact", [] ],
+        [ "SELECT Email FROM Contact", [] ],
+        [ "SELECT RareField FROM Contact", [] ],
+        [ "GROUP BY Title", [ { "v" => "x", "c" => 1 } ] ],
+        [ "GROUP BY Email", [ { "v" => "y", "c" => 1 } ] ],
+        [ "GROUP BY RareField", [ { "v" => "z", "c" => 1 } ] ]
       ]
       runner = ProfileRunner.new(rest_client: StubRest.new(routes), tooling_client: StubTooling.new(record_count: 100))
       policy = Ontology::ProfilingPolicy.new(extraction_run: @run, user: @user)
@@ -127,10 +127,10 @@ module Salesforce
       safe = Sfield.create!(sobject: sobject, api_name: "Title", data_type: "string", sensitivity: "safe", raw_describe: {})
 
       routes = [
-        ["FROM Contact WHERE Title = null", [{ "c" => 10 }]],
-        ["COUNT_DISTINCT(Title)", [{ "c" => 4 }]],
-        ["SELECT Title FROM Contact", [{ "Title" => "Engineer" }, { "Title" => "Manager" }]],
-        ["GROUP BY Title", [{ "v" => "Engineer", "c" => 7 }, { "v" => "Manager", "c" => 3 }]],
+        [ "FROM Contact WHERE Title = null", [ { "c" => 10 } ] ],
+        [ "COUNT_DISTINCT(Title)", [ { "c" => 4 } ] ],
+        [ "SELECT Title FROM Contact", [ { "Title" => "Engineer" }, { "Title" => "Manager" } ] ],
+        [ "GROUP BY Title", [ { "v" => "Engineer", "c" => 7 }, { "v" => "Manager", "c" => 3 } ] ]
       ]
       runner = ProfileRunner.new(rest_client: StubRest.new(routes), tooling_client: StubTooling.new(record_count: 100))
       policy = Ontology::ProfilingPolicy.new(extraction_run: plain_run, user: @user)
@@ -147,9 +147,9 @@ module Salesforce
       pii = Sfield.create!(sobject: sobject, api_name: "Email", data_type: "email", sensitivity: "pii", raw_describe: {})
 
       routes = [
-        ["FROM Contact WHERE Email = null", [{ "c" => 5 }]],
-        ["COUNT_DISTINCT(Email)", [{ "c" => 80 }]],
-        ["SELECT Email FROM Contact", [{ "Email" => "e1@x.com" }]]
+        [ "FROM Contact WHERE Email = null", [ { "c" => 5 } ] ],
+        [ "COUNT_DISTINCT(Email)", [ { "c" => 80 } ] ],
+        [ "SELECT Email FROM Contact", [ { "Email" => "e1@x.com" } ] ]
         # No GROUP BY route — verifying the runner doesn't issue that query.
       ]
       runner = ProfileRunner.new(rest_client: StubRest.new(routes), tooling_client: StubTooling.new(record_count: 100))
@@ -164,14 +164,14 @@ module Salesforce
 
     test "pii field with override ON + role → top-N and samples populated, sensitive_override_used=true" do
       routes = [
-        ["FROM Contact WHERE Title = null", [{ "c" => 0 }]],
-        ["FROM Contact WHERE Email = null", [{ "c" => 0 }]],
-        ["COUNT_DISTINCT(Title)", [{ "c" => 5 }]],
-        ["COUNT_DISTINCT(Email)", [{ "c" => 90 }]],
-        ["SELECT Title FROM Contact", [{ "Title" => "Eng" }]],
-        ["SELECT Email FROM Contact", [{ "Email" => "e1@x.com" }]],
-        ["GROUP BY Title", [{ "v" => "Eng", "c" => 1 }]],
-        ["GROUP BY Email", [{ "v" => "e1@x.com", "c" => 11 }]]
+        [ "FROM Contact WHERE Title = null", [ { "c" => 0 } ] ],
+        [ "FROM Contact WHERE Email = null", [ { "c" => 0 } ] ],
+        [ "COUNT_DISTINCT(Title)", [ { "c" => 5 } ] ],
+        [ "COUNT_DISTINCT(Email)", [ { "c" => 90 } ] ],
+        [ "SELECT Title FROM Contact", [ { "Title" => "Eng" } ] ],
+        [ "SELECT Email FROM Contact", [ { "Email" => "e1@x.com" } ] ],
+        [ "GROUP BY Title", [ { "v" => "Eng", "c" => 1 } ] ],
+        [ "GROUP BY Email", [ { "v" => "e1@x.com", "c" => 11 } ] ]
       ]
       runner = ProfileRunner.new(rest_client: StubRest.new(routes), tooling_client: StubTooling.new(record_count: 100))
       policy = Ontology::ProfilingPolicy.new(extraction_run: @run, user: @user)
@@ -206,15 +206,15 @@ module Salesforce
       # NOT NULL `sampled` column raised PG::NotNullViolation for every
       # ProfileObjectJob in a run.
       routes = [
-        ["FROM Contact WHERE Title = null", [{ "c" => 0 }]],
-        ["FROM Contact WHERE Email = null", [{ "c" => 0 }]],
-        ["COUNT_DISTINCT(Title)", [{ "c" => 1 }]],
-        ["COUNT_DISTINCT(Email)", [{ "c" => 1 }]],
-        ["SELECT COUNT(Id) c FROM Contact", [{ "c" => 0 }]],
-        ["GROUP BY Title", [{ "v" => "X", "c" => 0 }]],
-        ["GROUP BY Email", [{ "v" => "X", "c" => 0 }]],
-        ["SELECT Title FROM Contact", []],
-        ["SELECT Email FROM Contact", []]
+        [ "FROM Contact WHERE Title = null", [ { "c" => 0 } ] ],
+        [ "FROM Contact WHERE Email = null", [ { "c" => 0 } ] ],
+        [ "COUNT_DISTINCT(Title)", [ { "c" => 1 } ] ],
+        [ "COUNT_DISTINCT(Email)", [ { "c" => 1 } ] ],
+        [ "SELECT COUNT(Id) c FROM Contact", [ { "c" => 0 } ] ],
+        [ "GROUP BY Title", [ { "v" => "X", "c" => 0 } ] ],
+        [ "GROUP BY Email", [ { "v" => "X", "c" => 0 } ] ],
+        [ "SELECT Title FROM Contact", [] ],
+        [ "SELECT Email FROM Contact", [] ]
       ]
 
       runner = ProfileRunner.new(rest_client: StubRest.new(routes), tooling_client: StubTooling.new(record_count: nil))

@@ -8,7 +8,7 @@ class ReportsController < ApplicationController
     end
     authorize @run, :show?
 
-    rows = ActiveRecord::Base.connection.select_all(<<~SQL.squish, "hub_orphan", [@run.id])
+    rows = ActiveRecord::Base.connection.select_all(<<~SQL.squish, "hub_orphan", [ @run.id ])
       SELECT s.id, s.api_name, s.namespace_prefix, s.custom,
              COALESCE(out_count, 0) AS out_count,
              COALESCE(in_count, 0)  AS in_count

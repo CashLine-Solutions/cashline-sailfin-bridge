@@ -28,7 +28,7 @@ module Salesforce
       describes = {}
       partial_failures = []
 
-      queue = @seed_objects.map { |name| [name, 0] }
+      queue = @seed_objects.map { |name| [ name, 0 ] }
 
       until queue.empty?
         api_name, depth = queue.shift
@@ -58,7 +58,7 @@ module Salesforce
             next if visited.key?(target)
             next unless target_in_scope?(target, describes[target])
 
-            queue << [target, depth + 1]
+            queue << [ target, depth + 1 ]
           end
         end
       end

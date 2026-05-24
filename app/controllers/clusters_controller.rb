@@ -1,6 +1,6 @@
 class ClustersController < ApplicationController
   before_action :load_run
-  before_action :load_cluster, only: [:rename, :assign, :reset]
+  before_action :load_cluster, only: [ :rename, :assign, :reset ]
   after_action :verify_authorized
 
   def edit

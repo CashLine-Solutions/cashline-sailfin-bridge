@@ -9,8 +9,8 @@ class ObjectsControllerTest < ActionDispatch::IntegrationTest
     @safe = Sfield.create!(sobject: @sobject, api_name: "Name", data_type: "string", sensitivity: "safe", raw_describe: {})
     @pii = Sfield.create!(sobject: @sobject, api_name: "Email", data_type: "email", sensitivity: "pii", raw_describe: {})
     @profile = ObjectProfile.create!(extraction_run: @run, sobject: @sobject, status: "complete", record_count: 100, profiled_at: Time.current)
-    @safe_fp = FieldProfile.create!(object_profile: @profile, sfield: @safe, null_rate: 0.1, distinct_count: 80, top_values: [{ "v" => "Acme", "c" => 5 }], sample_values: ["Acme"])
-    @pii_fp = FieldProfile.create!(object_profile: @profile, sfield: @pii, null_rate: 0.0, distinct_count: 90, top_values: [{ "v" => "x@y.com", "c" => 1 }], sample_values: ["x@y.com"])
+    @safe_fp = FieldProfile.create!(object_profile: @profile, sfield: @safe, null_rate: 0.1, distinct_count: 80, top_values: [ { "v" => "Acme", "c" => 5 } ], sample_values: [ "Acme" ])
+    @pii_fp = FieldProfile.create!(object_profile: @profile, sfield: @pii, null_rate: 0.0, distinct_count: 90, top_values: [ { "v" => "x@y.com", "c" => 1 } ], sample_values: [ "x@y.com" ])
   end
 
   def sign_in(user)
@@ -76,7 +76,7 @@ class ObjectsControllerTest < ActionDispatch::IntegrationTest
     so = Sobject.create!(extraction_run: sensitive_run, api_name: "Account", label: "Account", raw_describe: {})
     pii = Sfield.create!(sobject: so, api_name: "Email", data_type: "email", sensitivity: "pii", raw_describe: {})
     profile = ObjectProfile.create!(extraction_run: sensitive_run, sobject: so, status: "complete", profiled_at: Time.current)
-    FieldProfile.create!(object_profile: profile, sfield: pii, null_rate: 0.0, distinct_count: 5, top_values: [{ "v" => "x@y.com", "c" => 1 }], sample_values: ["x@y.com"], sensitive_override_used: true)
+    FieldProfile.create!(object_profile: profile, sfield: pii, null_rate: 0.0, distinct_count: 5, top_values: [ { "v" => "x@y.com", "c" => 1 } ], sample_values: [ "x@y.com" ], sensitive_override_used: true)
 
     sign_in(@analyst_pii)
     get object_path(so.api_name, run: sensitive_run.id)

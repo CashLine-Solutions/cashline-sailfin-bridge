@@ -41,7 +41,7 @@ class ExtractToolingJobTest < ActiveJob::TestCase
   end
 
   test "appends tooling records to each visited object's jsonl" do
-    fixed = FixedFetcher.new([{ "record_type" => "tooling_field_metadata", "field_developer_name" => "X" }])
+    fixed = FixedFetcher.new([ { "record_type" => "tooling_field_metadata", "field_developer_name" => "X" } ])
 
     job = ExtractToolingJob.new
     job.define_singleton_method(:build_fetcher) { fixed }
@@ -67,7 +67,7 @@ class ExtractToolingJobTest < ActiveJob::TestCase
   end
 
   test "finalizes the run: loads relational tables, fans out profile jobs, stamps content_hash, marks complete" do
-    fixed = FixedFetcher.new([{ "record_type" => "tooling_field_metadata", "field_developer_name" => "X" }])
+    fixed = FixedFetcher.new([ { "record_type" => "tooling_field_metadata", "field_developer_name" => "X" } ])
 
     job = ExtractToolingJob.new
     job.define_singleton_method(:build_fetcher) { fixed }

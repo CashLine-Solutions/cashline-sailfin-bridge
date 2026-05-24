@@ -45,14 +45,14 @@ module Salesforce
 
     test "max_hops=2 across allowlisted seed -> B -> C visits all three" do
       payloads = {
-        "A" => describe_payload(name: "A", fields: [reference_field(name: "BId", references_to: "B")]),
-        "B" => describe_payload(name: "B", fields: [reference_field(name: "CId", references_to: "C")]),
-        "C" => describe_payload(name: "C", fields: [text_field(name: "Name")])
+        "A" => describe_payload(name: "A", fields: [ reference_field(name: "BId", references_to: "B") ]),
+        "B" => describe_payload(name: "B", fields: [ reference_field(name: "CId", references_to: "C") ]),
+        "C" => describe_payload(name: "C", fields: [ text_field(name: "Name") ])
       }
       walker = DescribeWalker.new(
         client: StubClient.new(payloads),
         seed_objects: %w[A],
-        namespace_allowlist: [nil],
+        namespace_allowlist: [ nil ],
         standard_allowlist: %w[A B C],
         max_hops: 2
       )
@@ -65,13 +65,13 @@ module Salesforce
 
     test "max_hops=1 limits the walk to A and its direct neighbors" do
       payloads = {
-        "A" => describe_payload(name: "A", fields: [reference_field(name: "BId", references_to: "B")]),
-        "B" => describe_payload(name: "B", fields: [reference_field(name: "CId", references_to: "C")])
+        "A" => describe_payload(name: "A", fields: [ reference_field(name: "BId", references_to: "B") ]),
+        "B" => describe_payload(name: "B", fields: [ reference_field(name: "CId", references_to: "C") ])
       }
       walker = DescribeWalker.new(
         client: StubClient.new(payloads),
         seed_objects: %w[A],
-        namespace_allowlist: [nil],
+        namespace_allowlist: [ nil ],
         standard_allowlist: %w[A B C],
         max_hops: 1
       )
@@ -82,12 +82,12 @@ module Salesforce
 
     test "relationship to an out-of-allowlist object terminates at the gateway" do
       payloads = {
-        "A" => describe_payload(name: "A", fields: [reference_field(name: "DropMeId", references_to: "DropMe__c")])
+        "A" => describe_payload(name: "A", fields: [ reference_field(name: "DropMeId", references_to: "DropMe__c") ])
       }
       walker = DescribeWalker.new(
         client: StubClient.new(payloads),
         seed_objects: %w[A],
-        namespace_allowlist: ["sailfin"], # excludes the lookup target
+        namespace_allowlist: [ "sailfin" ], # excludes the lookup target
         standard_allowlist: %w[A],
         max_hops: 3
       )
@@ -99,12 +99,12 @@ module Salesforce
 
     test "self-referential relationships do not infinite-loop" do
       payloads = {
-        "A" => describe_payload(name: "A", fields: [reference_field(name: "ParentId", references_to: "A")])
+        "A" => describe_payload(name: "A", fields: [ reference_field(name: "ParentId", references_to: "A") ])
       }
       walker = DescribeWalker.new(
         client: StubClient.new(payloads),
         seed_objects: %w[A],
-        namespace_allowlist: [nil],
+        namespace_allowlist: [ nil ],
         standard_allowlist: %w[A],
         max_hops: 5
       )
@@ -125,7 +125,7 @@ module Salesforce
       walker = DescribeWalker.new(
         client: StubClient.new(payloads),
         seed_objects: %w[Task],
-        namespace_allowlist: [nil],
+        namespace_allowlist: [ nil ],
         standard_allowlist: %w[Task Account Opportunity],
         max_hops: 1
       )
@@ -136,15 +136,15 @@ module Salesforce
 
     test "each object is described exactly once even if reached from two seeds" do
       payloads = {
-        "A" => describe_payload(name: "A", fields: [reference_field(name: "CId", references_to: "C")]),
-        "B" => describe_payload(name: "B", fields: [reference_field(name: "CId", references_to: "C")]),
+        "A" => describe_payload(name: "A", fields: [ reference_field(name: "CId", references_to: "C") ]),
+        "B" => describe_payload(name: "B", fields: [ reference_field(name: "CId", references_to: "C") ]),
         "C" => describe_payload(name: "C", fields: [])
       }
       stub = StubClient.new(payloads)
       walker = DescribeWalker.new(
         client: stub,
         seed_objects: %w[A B],
-        namespace_allowlist: [nil],
+        namespace_allowlist: [ nil ],
         standard_allowlist: %w[A B C],
         max_hops: 1
       )
@@ -166,14 +166,14 @@ module Salesforce
 
     test "single inaccessible object becomes a partial failure and walk continues" do
       payloads = {
-        "A" => describe_payload(name: "A", fields: [reference_field(name: "BId", references_to: "B")]),
+        "A" => describe_payload(name: "A", fields: [ reference_field(name: "BId", references_to: "B") ]),
         "C" => describe_payload(name: "C", fields: [])
       }
       failures = { "B" => StandardError.new("FLS denied") }
       walker = DescribeWalker.new(
         client: FlakyClient.new(payloads, failures),
         seed_objects: %w[A C],
-        namespace_allowlist: [nil],
+        namespace_allowlist: [ nil ],
         standard_allowlist: %w[A B C],
         max_hops: 2
       )

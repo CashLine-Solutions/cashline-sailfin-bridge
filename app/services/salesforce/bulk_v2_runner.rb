@@ -128,7 +128,7 @@ module Salesforce
       begin
         token = @client_factory.ensure_token
         response = yield(token)
-        if [401, 404].include?(response.status) && retries < MAX_AUTH_RETRIES
+        if [ 401, 404 ].include?(response.status) && retries < MAX_AUTH_RETRIES
           @client_factory.invalidate_token!
           retries += 1
           raise RetryError

@@ -1,6 +1,6 @@
 class RunsController < ApplicationController
-  before_action :set_run, only: [:show, :select]
-  after_action :verify_authorized, except: [:select]
+  before_action :set_run, only: [ :show, :select ]
+  after_action :verify_authorized, except: [ :select ]
 
   PRESET_SEED_OBJECTS = {
     "ar_default" => %w[Account Contact Opportunity],
@@ -16,7 +16,7 @@ class RunsController < ApplicationController
   # job defaults apply (namespace_allowlist = [nil, ""], max_hops = 3).
   PRESET_WALK_OPTIONS = {
     "sailfin_scope" => {
-      "namespace_allowlist" => [nil, "", "sfsrm", "sfcapp"],
+      "namespace_allowlist" => [ nil, "", "sfsrm", "sfcapp" ],
       "standard_allowlist"  => %w[Account Contact User RecordType Opportunity Task Event Pricebook2 Profile],
       "max_hops"            => 4
     }

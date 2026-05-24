@@ -11,9 +11,9 @@ class CreateAuditEvents < ActiveRecord::Migration[8.1]
 
       t.datetime :created_at, null: false, default: -> { "CURRENT_TIMESTAMP" }
     end
-    add_index :audit_events, [:user_id, :created_at]
-    add_index :audit_events, [:action, :created_at]
-    add_index :audit_events, [:subject_type, :subject_id]
+    add_index :audit_events, [ :user_id, :created_at ]
+    add_index :audit_events, [ :action, :created_at ]
+    add_index :audit_events, [ :subject_type, :subject_id ]
 
     # Append-only enforcement at the DB layer. Catches direct SQL access by
     # tools that bypass the AuditEvent model layer.

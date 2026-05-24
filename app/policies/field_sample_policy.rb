@@ -15,11 +15,11 @@ class FieldSamplePolicy < ApplicationPolicy
 
   def extract_run_and_field
     if record.is_a?(Hash)
-      [record[:run], record[:sfield]]
+      [ record[:run], record[:sfield] ]
     else
       sfield = record
       run = sfield.sobject&.extraction_run
-      [run, sfield]
+      [ run, sfield ]
     end
   end
 end

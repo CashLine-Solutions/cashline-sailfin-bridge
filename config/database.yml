@@ -35,13 +35,20 @@ test:
   primary:
     <<: *default
     database: cashline_ontology_test
+    # In CI, DATABASE_URL points at the Postgres service container. Without
+    # this explicit `url:` line, only the primary DB picks it up via Rails'
+    # implicit DATABASE_URL handling — the cache + audit DBs default to a
+    # Unix socket that doesn't exist in the CI runner.
+    url: <%= ENV["DATABASE_URL"] %>
   cache:
     <<: *default
     database: cashline_ontology_test_cache
+    url: <%= ENV["DATABASE_URL"] %>
     migrations_paths: db/cache_migrate
   audit:
     <<: *default
     database: cashline_ontology_test_audit
+    url: <%= ENV["DATABASE_URL"] %>
     migrations_paths: db/audit_migrate
 
 production:

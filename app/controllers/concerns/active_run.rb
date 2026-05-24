@@ -28,7 +28,7 @@ module ActiveRun
   def load_current_run
     candidate = if session[:active_run_id].present?
                   ExtractionRun.find_by(id: session[:active_run_id])
-                end
+    end
     candidate ||= viewable_runs.where(status: %w[complete complete_with_warnings]).order(completed_at: :desc).first
     return nil if candidate.nil?
     return candidate if ExtractionRunPolicy.new(Current.user, candidate).show?

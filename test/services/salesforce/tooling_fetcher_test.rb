@@ -18,11 +18,11 @@ module Salesforce
 
     test "returns a tooling_field_metadata record for each formula field" do
       responses = [
-        ["FROM CustomField", [
+        [ "FROM CustomField", [
           { "Id" => "00N", "DeveloperName" => "Margin", "Metadata" => { "formula" => "Amount__c - Cost__c" } },
           { "Id" => "00P", "DeveloperName" => "Plain", "Metadata" => { "formula" => nil } }
-        ]],
-        ["FROM ValidationRule", []]
+        ] ],
+        [ "FROM ValidationRule", [] ]
       ]
       fetcher = ToolingFetcher.new(client: StubToolingClient.new(responses))
 
@@ -36,10 +36,10 @@ module Salesforce
 
     test "returns a tooling_validation_rule record for each rule with error formula" do
       responses = [
-        ["FROM CustomField", []],
-        ["FROM ValidationRule", [
+        [ "FROM CustomField", [] ],
+        [ "FROM ValidationRule", [
           { "Id" => "03V", "ValidationName" => "NonZero", "Metadata" => { "errorConditionFormula" => "Amount__c == 0" } }
-        ]]
+        ] ]
       ]
       fetcher = ToolingFetcher.new(client: StubToolingClient.new(responses))
 
@@ -52,8 +52,8 @@ module Salesforce
 
     test "object with no formula fields and no rules returns empty array" do
       responses = [
-        ["FROM CustomField", []],
-        ["FROM ValidationRule", []]
+        [ "FROM CustomField", [] ],
+        [ "FROM ValidationRule", [] ]
       ]
       fetcher = ToolingFetcher.new(client: StubToolingClient.new(responses))
       assert_equal [], fetcher.fetch_for("Account")

@@ -1,7 +1,7 @@
 class ErdsController < ApplicationController
   before_action :load_run
-  after_action :verify_authorized, only: [:show]
-  after_action :verify_policy_scoped, only: [:index]
+  after_action :verify_authorized, only: [ :show ]
+  after_action :verify_policy_scoped, only: [ :index ]
 
   def index
     if @run.nil?

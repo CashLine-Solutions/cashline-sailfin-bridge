@@ -30,14 +30,14 @@ module Ontology
 
       # Each node starts as its own cluster.
       cluster_of = nodes.each_with_object({}) { |n, h| h[n] = n }
-      members = nodes.each_with_object({}) { |n, h| h[n] = [n] }
+      members = nodes.each_with_object({}) { |n, h| h[n] = [ n ] }
 
       # Edge weight between cluster pairs (undirected; canonical key).
       cluster_edge_weight = Hash.new(0)
       edges.each do |e|
         c1, c2 = e.source_id, e.target_id
         next if c1 == c2
-        key = [c1, c2].minmax
+        key = [ c1, c2 ].minmax
         cluster_edge_weight[key] += 1
       end
       cluster_degree = degree.dup
@@ -52,7 +52,7 @@ module Ontology
           q_gain = (w_ij.to_f / m) - (d1 * d2) / (2.0 * m * m)
           if q_gain > best_gain
             best_gain = q_gain
-            best_pair = [c1, c2]
+            best_pair = [ c1, c2 ]
           end
         end
         break if best_pair.nil?
@@ -66,11 +66,11 @@ module Ontology
         # Recompute weights involving keep/drop.
         new_weights = {}
         cluster_edge_weight.each do |(c1, c2), w|
-          next if [c1, c2].include?(drop) && [c1, c2].include?(keep)
+          next if [ c1, c2 ].include?(drop) && [ c1, c2 ].include?(keep)
           a = (c1 == drop ? keep : c1)
           b = (c2 == drop ? keep : c2)
           next if a == b
-          k = [a, b].minmax
+          k = [ a, b ].minmax
           new_weights[k] = (new_weights[k] || 0) + w
         end
         cluster_edge_weight = new_weights
@@ -82,7 +82,7 @@ module Ontology
     private
 
     def wrap_singletons(nodes)
-      nodes.map { |n| [n] }
+      nodes.map { |n| [ n ] }
     end
   end
 end

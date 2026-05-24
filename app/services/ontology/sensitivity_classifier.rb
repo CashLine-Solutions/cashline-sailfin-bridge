@@ -19,7 +19,7 @@ module Ontology
     # owning object's describe (used to detect person-name siblings);
     # `compliance_group` is the optional Tooling-API FieldDefinition string.
     def classify(field:, sobject_describe: nil, compliance_group: nil)
-      return { sensitivity: UNKNOWN, signals: ["missing_describe"] } if field.nil? || field.empty?
+      return { sensitivity: UNKNOWN, signals: [ "missing_describe" ] } if field.nil? || field.empty?
 
       signals = []
       pii = false

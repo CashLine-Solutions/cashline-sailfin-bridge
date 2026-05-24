@@ -73,7 +73,7 @@ class ExtractionRun < ApplicationRecord
     entry = { "object_api_name" => object_api_name, "reason" => reason }
     self.class.where(id: id).update_all([
       "partial_failures = partial_failures || ?::jsonb, updated_at = ?",
-      [entry].to_json, Time.current
+      [ entry ].to_json, Time.current
     ])
     # Keep the in-memory record in sync for callers that read it after.
     reload
@@ -84,7 +84,7 @@ class ExtractionRun < ApplicationRecord
   def broadcast_panel_update
     return unless user_id
     broadcast_replace_to(
-      [self, user],
+      [ self, user ],
       target: ActionView::RecordIdentifier.dom_id(self, :panel),
       partial: "runs/panel",
       locals: { run: self }

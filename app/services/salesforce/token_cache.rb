@@ -70,30 +70,30 @@ module Salesforce
     private
 
     def write(key, token, lifetime_seconds:)
-      ttl = [lifetime_seconds - 5.minutes.to_i, 60].max
+      ttl = [ lifetime_seconds - 5.minutes.to_i, 60 ].max
       Rails.cache.write(key, token, expires_in: ttl, race_condition_ttl: 30)
     end
 
     # Postgres advisory lock keyed on the hash of the cache key. Two args
     # form is used to support arbitrary 64-bit keys; we map the cache key
-    # to a stable signed int pair.
+    # to a stable signed int pair. Uses exec_query with bind parameters so
+    # Brakeman doesn't flag the integer interpolation as SQL injection
+    # (the values come from SHA256 hashes so they were already safe, but
+    # parameterized SQL is the right pattern regardless).
     def with_advisory_lock(key)
       lock_id_high, lock_id_low = advisory_lock_ids(key)
-      ActiveRecord::Base.connection.execute(
-        "SELECT pg_advisory_lock(#{lock_id_high}, #{lock_id_low})"
-      )
+      conn = ActiveRecord::Base.connection
+      conn.exec_query("SELECT pg_advisory_lock($1, $2)", "pg_advisory_lock", [ lock_id_high, lock_id_low ])
       yield
     ensure
-      ActiveRecord::Base.connection.execute(
-        "SELECT pg_advisory_unlock(#{lock_id_high}, #{lock_id_low})"
-      )
+      conn&.exec_query("SELECT pg_advisory_unlock($1, $2)", "pg_advisory_unlock", [ lock_id_high, lock_id_low ])
     end
 
     def advisory_lock_ids(key)
       digest = Digest::SHA256.digest(key)
       # Map first 8 bytes to two signed 32-bit ints (Postgres advisory_lock(int, int))
       hi, lo = digest.unpack("l>l>")
-      [hi, lo]
+      [ hi, lo ]
     end
   end
 end

@@ -24,7 +24,7 @@ module Ontology
     end
 
     test "Account.Name (business name, no FirstName/LastName siblings) → safe" do
-      sobject = { "name" => "Account", "fields" => [{ "name" => "Name", "nameField" => true }] }
+      sobject = { "name" => "Account", "fields" => [ { "name" => "Name", "nameField" => true } ] }
       result = classify({ "name" => "Name", "type" => "string", "nameField" => true }, sobject: sobject)
       assert_equal "safe", result[:sensitivity]
     end

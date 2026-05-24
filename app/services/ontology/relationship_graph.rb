@@ -26,7 +26,7 @@ module Ontology
       rels.each do |src, tgt, poly|
         next if src == tgt
         next unless node_ids.include?(src) && node_ids.include?(tgt)
-        key = [src, tgt].minmax
+        key = [ src, tgt ].minmax
         next if seen_pairs.include?(key)
         seen_pairs << key
         edges << Edge.new(source_id: src, target_id: tgt, polymorphic: poly)

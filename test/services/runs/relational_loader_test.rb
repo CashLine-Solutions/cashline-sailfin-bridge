@@ -35,13 +35,13 @@ module Runs
         "name" => "Account",
         "label" => "Account",
         "fields" => (1..30).map { |i| { "name" => "F#{i}", "type" => "string", "label" => "F#{i}" } } +
-          [{ "name" => "OwnerId", "type" => "reference", "referenceTo" => %w[User], "relationshipName" => "Owner" }]
+          [ { "name" => "OwnerId", "type" => "reference", "referenceTo" => %w[User], "relationshipName" => "Owner" } ]
       })
       seed_jsonl("Contact", {
         "name" => "Contact",
         "label" => "Contact",
         "fields" => (1..18).map { |i| { "name" => "G#{i}", "type" => "string", "label" => "G#{i}" } } +
-          [{ "name" => "AccountId", "type" => "reference", "referenceTo" => %w[Account], "relationshipName" => "Account" }]
+          [ { "name" => "AccountId", "type" => "reference", "referenceTo" => %w[Account], "relationshipName" => "Account" } ]
       })
       seed_jsonl("User", {
         "name" => "User",
@@ -59,7 +59,7 @@ module Runs
 
     test "re-loading the same run replaces rows without duplicating" do
       seed_jsonl("Account", {
-        "name" => "Account", "fields" => [{ "name" => "Name", "type" => "string" }]
+        "name" => "Account", "fields" => [ { "name" => "Name", "type" => "string" } ]
       })
       RelationalLoader.load!(@run)
       first_field_id = Sfield.first.id

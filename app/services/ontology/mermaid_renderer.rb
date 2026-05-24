@@ -19,7 +19,7 @@ module Ontology
     end
 
     def render
-      lines = ["erDiagram"]
+      lines = [ "erDiagram" ]
       @sobjects.each do |so|
         lines << "  #{safe_id(so.api_name)} {"
         so.sfields.order(:api_name).first(15).each do |f|
