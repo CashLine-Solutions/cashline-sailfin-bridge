@@ -69,10 +69,6 @@ module Runs
       root.join("#{sanitize(object_api_name)}.jsonl")
     end
 
-    def profile_jsonl_path(object_api_name)
-      root.join("#{sanitize(object_api_name)}.profile.jsonl")
-    end
-
     def write_manifest!(payload)
       ensure!
       File.write(manifest_path, JSON.pretty_generate(payload))

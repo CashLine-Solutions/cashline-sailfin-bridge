@@ -59,7 +59,7 @@ class ExtractDescribeJob < ApplicationJob
       "edges" => result.edges
     )
 
-    ExtractToolingJob.perform_later(run.id) if defined?(ExtractToolingJob)
+    ExtractToolingJob.perform_later(run.id)
     result
   rescue Salesforce::Error, ActiveRecord::ActiveRecordError => e
     run&.mark_failed!(e.message)

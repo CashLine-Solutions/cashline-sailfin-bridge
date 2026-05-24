@@ -52,7 +52,7 @@
             <td class="px-3 py-2"><%= status_badge(run.status) %></td>
             <td class="px-3 py-2 text-slate-700"><%= time_ago_or_dash(run.started_at) %></td>
             <td class="px-3 py-2 text-slate-700"><%= time_ago_or_dash(run.completed_at) %></td>
-            <td class="px-3 py-2 text-slate-700"><%= can_view ? run.sobjects.count : "—" %></td>
+            <td class="px-3 py-2 text-slate-700"><%= can_view ? (@sobject_counts[run.id] || 0) : "—" %></td>
             <td class="px-3 py-2">
               <% if run.include_sensitive %><span class="rounded bg-amber-100 text-amber-900 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">sensitive</span><% end %>
             </td>

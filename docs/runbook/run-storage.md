@@ -8,7 +8,7 @@ Each extraction writes raw Salesforce JSON payloads to a per-run directory under
 storage/
 ├── runs/
 │   ├── 2026-05-23T14-00-00Z-a1b2/
-│   │   ├── manifest.json
+│   │   ├── _manifest.json
 │   │   ├── Account.jsonl
 │   │   ├── Contact.jsonl
 │   │   ├── Opportunity.jsonl
@@ -18,7 +18,7 @@ storage/
 └── runs/
     └── sensitive/
         └── 2026-05-23T20-15-00Z-e5f6/  (mode 0700)
-            ├── manifest.json
+            ├── _manifest.json
             └── ...
 ```
 
@@ -33,10 +33,10 @@ The on-disk JSON is the immutable input to `Runs::RelationalLoader`, which build
 
 | File | Contents |
 |---|---|
-| `manifest.json` | Run metadata: api_version, started_at, walk_options, seed_objects, objects_visited, edges (relationships discovered during the walk) |
+| `_manifest.json` | Run metadata: api_version, started_at, walk_options, seed_objects, objects_visited, edges (relationships discovered during the walk) |
 | `<ObjectApi>.jsonl` | One JSON line per record_type. Currently: `{"record_type": "describe", "api_name": "Account", "payload": {...}}` for the full Salesforce describe; later record_types may be added (tooling metadata, profile samples). |
 
-Reading a run is straightforward: open `manifest.json` to see what objects to expect, then stream each `<ObjectApi>.jsonl` line by line.
+Reading a run is straightforward: open `_manifest.json` to see what objects to expect, then stream each `<ObjectApi>.jsonl` line by line.
 
 ## Sensitivity enforcement
 
@@ -52,7 +52,7 @@ In production, deploy the Rails app under a dedicated user (e.g. `cashline`), an
 ## Retention
 
 - **Non-sensitive runs:** kept indefinitely. Operators may prune manually if disk pressure is an issue.
-- **Sensitive runs:** auto-purged 30 days after `retained_until` (set on creation). The `PurgeExpiredSensitiveRunsJob` runs daily via GoodJob cron (see `config/good_job.yml`).
+- **Sensitive runs:** auto-purged 30 days after `retained_until` (set on creation). The `PurgeExpiredSensitiveRunsJob` runs daily via GoodJob cron (see `config/initializers/good_job.rb`).
 
 Purge is destructive: the on-disk directory is removed AND the `extraction_run` row is `destroy!`ed (which cascades through profiles, fields, picklist values, relationships, clusters, and any `run_diffs` involving the run as either side).
 

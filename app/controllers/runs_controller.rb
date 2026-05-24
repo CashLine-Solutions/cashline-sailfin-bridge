@@ -12,7 +12,10 @@ class RunsController < ApplicationController
     scope = policy_scope(ExtractionRun)
     scope = scope.where(status: params[:status]) if params[:status].present?
     scope = scope.where(include_sensitive: params[:include_sensitive] == "1") if params[:include_sensitive].present?
-    @runs = scope.order(created_at: :desc).limit(100)
+    @runs = scope.order(created_at: :desc).limit(100).to_a
+    # Pre-load sobject counts so the index table renders in 2 queries
+    # instead of (1 + N) — every row called run.sobjects.count before.
+    @sobject_counts = Sobject.where(extraction_run_id: @runs.map(&:id)).group(:extraction_run_id).count
   end
 
   def show

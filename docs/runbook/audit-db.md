@@ -51,7 +51,12 @@ AUDIT_WRITER_URL=postgres://cashline_audit_writer:<password>@host/cashline_ontol
   bin/rails audit:smoke
 ```
 
-Expected output: `OK — writer can INSERT/SELECT; UPDATE and DELETE blocked.`
+Expected output (two lines):
+
+```
+OK: writer role denied UPDATE (PG::InsufficientPrivilege)
+OK: writer role denied DELETE (PG::InsufficientPrivilege)
+```
 
 ## Production configuration
 

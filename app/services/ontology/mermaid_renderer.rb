@@ -15,6 +15,7 @@ module Ontology
       @cluster = cluster
       @sobjects = cluster.sobjects.includes(:sfields).order(:api_name).to_a
       @sobject_ids = @sobjects.map(&:id).to_set
+      @sobject_by_id = @sobjects.index_by(&:id)
     end
 
     def render
@@ -33,8 +34,8 @@ module Ontology
         .pluck(:source_sobject_id, :target_sobject_id, :relationship_name)
         .each do |src_id, tgt_id, name|
           next unless @sobject_ids.include?(src_id) && @sobject_ids.include?(tgt_id)
-          src = @sobjects.find { |s| s.id == src_id }
-          tgt = @sobjects.find { |s| s.id == tgt_id }
+          src = @sobject_by_id[src_id]
+          tgt = @sobject_by_id[tgt_id]
           lines << %(  #{safe_id(src.api_name)} }o--|| #{safe_id(tgt.api_name)} : "#{safe_label(name || 'refs')}")
         end
 

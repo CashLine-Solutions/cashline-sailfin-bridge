@@ -6,12 +6,14 @@ class ObjectsController < ApplicationController
   def index
     if @run.nil?
       @sobjects = policy_scope(Sobject.none)
+      @sfield_counts = {}
       return
     end
     scope = policy_scope(Sobject.where(extraction_run: @run))
     scope = scope.where("api_name ILIKE ?", "%#{params[:q]}%") if params[:q].present?
     scope = filter_namespace(scope, params[:namespace]) if params[:namespace].present?
     @sobjects = scope.order(:api_name).to_a
+    @sfield_counts = Sfield.where(sobject_id: @sobjects.map(&:id)).group(:sobject_id).count
   end
 
   def show

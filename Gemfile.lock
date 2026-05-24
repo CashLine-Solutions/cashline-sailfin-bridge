@@ -443,7 +443,7 @@ DEPENDENCIES
   csv (~> 3.3)
   debug
   faraday (~> 2)
-  good_job (~> 4.0)
+  good_job (~> 4.16)
   image_processing (~> 1.2)
   importmap-rails
   jbuilder

@@ -27,13 +27,19 @@ module Ontology
         ClusterAssignment.joins(:cluster).where(clusters: { extraction_run_id: @run.id }).delete_all
         Cluster.where(extraction_run_id: @run.id).delete_all
 
+        # Pre-load existing names into a Set so ensure_unique_name does in-memory
+        # uniqueness checks instead of one EXISTS query per collision.
+        @existing_names = Set.new
+
         groups.each_with_index do |sobject_ids, idx|
           next if sobject_ids.empty?
           biggest = Sobject.where(id: sobject_ids).order(api_name: :asc).first
           name = biggest&.label.presence || biggest&.api_name.presence || "Cluster #{idx + 1}"
+          cluster_name = ensure_unique_name(name, idx)
+          @existing_names << cluster_name
           cluster = Cluster.create!(
             extraction_run: @run,
-            name: ensure_unique_name(name, idx),
+            name: cluster_name,
             color: PALETTE[idx % PALETTE.size]
           )
           ClusterAssignment.insert_all!(sobject_ids.map { |sid| { cluster_id: cluster.id, sobject_id: sid, created_at: Time.current, updated_at: Time.current } })
@@ -48,7 +54,7 @@ module Ontology
     def ensure_unique_name(base, idx)
       candidate = base
       n = 1
-      while Cluster.where(extraction_run_id: @run.id, name: candidate).exists?
+      while @existing_names.include?(candidate)
         n += 1
         candidate = "#{base} (#{n})"
         break if n > 50

@@ -26,8 +26,9 @@ module Salesforce
     REQUEST_TIMEOUT = 60 # seconds for a single Faraday call to return
     MAX_AUTH_RETRIES = 1
     # Concurrency cap for any GoodJob job that wraps this runner. Caller
-    # should set: good_job_control_concurrency_with(total_limit: CONCURRENCY_LIMIT,
-    #   key: -> { "bulk_v2:#{Salesforce::ClientFactory.org_identifier}" })
+    # sets: good_job_control_concurrency_with(total_limit: CONCURRENCY_LIMIT,
+    #   key: -> { "bulk_v2:#{credentials.fetch(:consumer_key)}" }) so concurrent
+    # Bulk jobs against the same org are bounded org-wide.
     CONCURRENCY_LIMIT = 3
 
     class JobFailedError < Salesforce::Error; end

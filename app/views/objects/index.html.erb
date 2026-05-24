@@ -37,7 +37,7 @@
             <td class="px-3 py-2"><%= link_to so.api_name, object_path(so.api_name, run: @run.id), class: "font-mono text-blue-700 underline" %></td>
             <td class="px-3 py-2 text-slate-700"><%= so.label %></td>
             <td class="px-3 py-2 text-slate-700"><%= so.namespace_prefix.presence || "standard" %></td>
-            <td class="px-3 py-2 text-slate-700"><%= so.sfields.count %></td>
+            <td class="px-3 py-2 text-slate-700"><%= @sfield_counts[so.id] || 0 %></td>
             <td class="px-3 py-2 text-slate-700"><%= so.custom ? "custom" : "standard" %></td>
           </tr>
         <% end %>

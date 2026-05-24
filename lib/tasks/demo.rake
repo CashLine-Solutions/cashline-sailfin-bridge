@@ -155,7 +155,7 @@ namespace :ontology do
 
       sfield = Sfield.create!(
         sobject: sobject,
-        api_name: sailesforce_api_name(sobject, fkey),
+        api_name: salesforce_api_name(sobject, fkey),
         label: fkey.to_s.titleize,
         data_type: type,
         length: length,
@@ -205,7 +205,7 @@ namespace :ontology do
       PICKLIST_VALUES[fkey]
     end
 
-    def sailesforce_api_name(sobject, fkey)
+    def salesforce_api_name(sobject, fkey)
       base = case fkey
              when :firstname then "FirstName"
              when :lastname  then "LastName"

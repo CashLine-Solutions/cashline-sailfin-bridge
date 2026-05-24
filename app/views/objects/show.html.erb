@@ -64,7 +64,7 @@
               <td class="px-3 py-2">
                 <% if fp.nil? || fp.top_values.blank? %>—
                 <% elsif may_view_values %>
-                  <ul class="text-xs"><% fp.top_values.first(5).each do |tv| %><li><%= tv["v"] %> (<%= tv["c"] %>)</li><% end %></ul>
+                  <ul class="text-xs"><% fp.top_values.first(5).each do |tv| %><li><%= tv["value"] || tv["v"] %> (<%= tv["count"] || tv["c"] %>)</li><% end %></ul>
                 <% else %>
                   <%= redacted_cell(f) %>
                 <% end %>
