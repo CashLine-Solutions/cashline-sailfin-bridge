@@ -41,6 +41,36 @@ class ObjectsControllerTest < ActionDispatch::IntegrationTest
     assert_match("Acme", response.body, "safe field's value still rendered")
   end
 
+  test "fields returns just the inline panel (no layout, includes turbo-frame tag)" do
+    sign_in(@analyst)
+    get fields_object_path(@sobject.api_name, run: @run.id)
+    assert_response :success
+    # turbo_frame_tag wraps the panel; the frame id is dom_id(@sobject, :fields)
+    assert_match(/turbo-frame[^>]+id="fields_sobject_#{@sobject.id}"/, response.body)
+    # Field table content from the shared partial
+    assert_match("Name", response.body)
+    assert_match("Email", response.body)
+    # Layout-less render means no nav bar
+    refute_match("Cashline", response.body[0..2000], "fields action must render without the application layout")
+  end
+
+  test "fields applies sensitivity redaction the same as show" do
+    sign_in(@analyst_pii)
+    get fields_object_path(@sobject.api_name, run: @run.id)
+    assert_response :success
+    refute_match("x@y.com", response.body, "PII top values must not leak via the inline panel")
+    assert_match("Acme", response.body)
+  end
+
+  test "fields 404s for an api_name that doesn't exist on the active run" do
+    sign_in(@analyst)
+    post select_run_path(@run)
+    get fields_object_path("ObjectThatDoesNotExist", run: @run.id)
+    # ActionDispatch turns ActiveRecord::RecordNotFound into a 404 response
+    # in integration tests, so we assert on the response rather than rescuing.
+    assert_response :not_found
+  end
+
   test "sensitive run + role reveals PII values" do
     sensitive_run = ExtractionRun.create!(api_version: "62.0", include_sensitive: true, user: @analyst_pii, seed_objects: %w[Account], status: "complete", completed_at: Time.current)
     so = Sobject.create!(extraction_run: sensitive_run, api_name: "Account", label: "Account", raw_describe: {})

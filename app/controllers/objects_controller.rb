@@ -17,6 +17,27 @@ class ObjectsController < ApplicationController
   end
 
   def show
+    load_show_data!
+    @outgoing = Srelationship.where(source_sobject_id: @sobject.id).includes(:target_sobject, :source_field).to_a
+    @incoming = Srelationship.where(target_sobject_id: @sobject.id).includes(:source_sobject, :source_field).to_a
+  end
+
+  # Inline-expand panel rendered inside a Turbo Frame on /objects.
+  # Same data as #show minus relationship/formula sections so the inline
+  # expand stays light. Reuses ObjectViewPolicy for authorization.
+  def fields
+    load_show_data!
+    render layout: false
+  end
+
+  private
+
+  def load_run
+    @run = current_run
+    head :not_found if @run.nil? && params[:api_name].present?
+  end
+
+  def load_show_data!
     @sobject = Sobject.where(extraction_run: @run).find_by!(api_name: params[:api_name])
     authorize @sobject, policy_class: ObjectViewPolicy
     @sfields = @sobject.sfields.includes(:spicklist_values).order(:api_name)
@@ -26,15 +47,6 @@ class ObjectsController < ApplicationController
     else
       {}
     end
-    @outgoing = Srelationship.where(source_sobject_id: @sobject.id).includes(:target_sobject, :source_field).to_a
-    @incoming = Srelationship.where(target_sobject_id: @sobject.id).includes(:source_sobject, :source_field).to_a
-  end
-
-  private
-
-  def load_run
-    @run = current_run
-    head :not_found if @run.nil? && params[:api_name].present?
   end
 
   def filter_namespace(scope, ns)

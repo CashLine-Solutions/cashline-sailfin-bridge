@@ -1,0 +1,82 @@
+<%# Fields table for a single sobject. Reused by:
+    - objects/show.html.erb (the standalone page)
+    - objects/fields.html.erb (the inline Turbo Frame inside objects/index)
+
+    Locals:
+      sobject         — Sobject
+      sfields         — preloaded Sfield collection (ordered)
+      field_profiles  — { sfield_id => FieldProfile }
+      run             — ExtractionRun
+      object_profile  — ObjectProfile (or nil)
+      hide_value_cols — bool, hide Top/Samples for sensitive runs lacking access
+      can_see_sensitive — bool, may view sensitive values
+      compact         — bool, render in inline-expand mode (omits some chrome) %>
+
+<% compact = local_assigns.fetch(:compact, false) %>
+
+<div class="overflow-x-auto">
+  <table class="min-w-full divide-y divide-slate-200 text-sm">
+    <thead class="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
+      <tr>
+        <th class="px-3 py-2">API name</th>
+        <th class="px-3 py-2">Type</th>
+        <th class="px-3 py-2">Length</th>
+        <th class="px-3 py-2">Sensitivity</th>
+        <th class="px-3 py-2">Null %</th>
+        <th class="px-3 py-2">Distinct</th>
+        <% unless hide_value_cols %>
+          <th class="px-3 py-2">Top values</th>
+          <th class="px-3 py-2">Samples</th>
+        <% end %>
+        <th class="px-3 py-2">Refs</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      <% sfields.each do |f| %>
+        <% fp = field_profiles[f.id] %>
+        <% may_view_values = f.sensitivity.to_s == "safe" || can_see_sensitive %>
+        <tr>
+          <td class="px-3 py-2 font-mono text-xs">
+            <%= f.api_name %>
+            <% if f.calculated %><span class="ml-1 rounded bg-violet-100 text-violet-900 px-1 text-[10px]">calc</span><% end %>
+            <% if f.encrypted %><span class="ml-1 rounded bg-rose-100 text-rose-900 px-1 text-[10px]">enc</span><% end %>
+          </td>
+          <td class="px-3 py-2 text-slate-700"><%= f.data_type %></td>
+          <td class="px-3 py-2 text-slate-700"><%= f.length || "—" %></td>
+          <td class="px-3 py-2">
+            <% if f.sensitivity == "safe" %>
+              <span class="text-emerald-700 text-xs"><%= sensitivity_label(f.sensitivity) %></span>
+            <% else %>
+              <span class="text-amber-800 text-xs"><%= sensitivity_label(f.sensitivity) %></span>
+            <% end %>
+          </td>
+          <td class="px-3 py-2 text-slate-700"><%= fp&.null_rate ? "#{(fp.null_rate * 100).round(1)}%" : "—" %></td>
+          <td class="px-3 py-2 text-slate-700">
+            <% if fp.nil? %>—
+            <% elsif fp.distinct_count_suppressed %><span class="italic text-slate-500" title="Distinct < 5 on sensitive field — suppressed">suppressed</span>
+            <% else %><%= fp.distinct_count || "—" %><% end %>
+          </td>
+          <% unless hide_value_cols %>
+            <td class="px-3 py-2">
+              <% if fp.nil? || fp.top_values.blank? %>—
+              <% elsif may_view_values %>
+                <ul class="text-xs"><% fp.top_values.first(5).each do |tv| %><li><%= tv["value"] || tv["v"] %> (<%= tv["count"] || tv["c"] %>)</li><% end %></ul>
+              <% else %>
+                <%= redacted_cell(f) %>
+              <% end %>
+            </td>
+            <td class="px-3 py-2">
+              <% if fp.nil? || fp.sample_values.blank? %>—
+              <% elsif may_view_values %>
+                <ul class="text-xs"><% fp.sample_values.first(3).each do |s| %><li><%= s.to_s.truncate(40) %></li><% end %></ul>
+              <% else %>
+                <%= redacted_cell(f) %>
+              <% end %>
+            </td>
+          <% end %>
+          <td class="px-3 py-2 text-slate-700"><%= f.references_count %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

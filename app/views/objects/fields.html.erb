@@ -1,0 +1,25 @@
+<% can_see_sensitive = can_view_sensitive_values?(@run, Current.user) %>
+<% hide_value_cols = (@run.include_sensitive && !Current.user&.sensitive_data_access?) %>
+<%= turbo_frame_tag dom_id(@sobject, :fields) do %>
+  <div class="bg-slate-50 px-4 py-3 border-l-4 border-blue-300">
+    <div class="flex items-center justify-between mb-2">
+      <div class="text-sm">
+        <span class="font-semibold"><%= @sobject.api_name %></span>
+        <span class="text-slate-500">· <%= @sfields.size %> fields</span>
+        <% if @object_profile&.record_count %>
+          <span class="text-slate-500">· <%= number_with_delimiter(@object_profile.record_count) %> records</span>
+        <% end %>
+      </div>
+      <%= link_to "Open full page", object_path(@sobject.api_name, run: @run.id),
+            class: "text-xs text-blue-700 underline" %>
+    </div>
+    <%= render "fields_panel",
+          sobject: @sobject,
+          sfields: @sfields,
+          field_profiles: @field_profiles,
+          run: @run,
+          object_profile: @object_profile,
+          hide_value_cols: hide_value_cols,
+          can_see_sensitive: can_see_sensitive %>
+  </div>
+<% end %>

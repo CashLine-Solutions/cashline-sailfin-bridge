@@ -33,12 +33,32 @@
       </thead>
       <tbody class="divide-y divide-slate-100">
         <% @sobjects.each do |so| %>
-          <tr>
-            <td class="px-3 py-2"><%= link_to so.api_name, object_path(so.api_name, run: @run.id), class: "font-mono text-blue-700 underline" %></td>
+          <% frame_id = dom_id(so, :fields) %>
+          <tr data-controller="expandable"
+              data-expandable-frame-id-value="<%= frame_id %>"
+              data-expandable-frame-url-value="<%= fields_object_path(so.api_name, run: @run.id) %>">
+            <td class="px-3 py-2">
+              <button type="button"
+                      data-action="click->expandable#toggle"
+                      class="mr-2 inline-block w-4 text-slate-500 hover:text-slate-900"
+                      aria-label="Expand fields"
+                      title="Show fields inline">
+                <span data-expandable-target="chevron">▸</span>
+              </button>
+              <%= link_to so.api_name, object_path(so.api_name, run: @run.id), class: "font-mono text-blue-700 underline" %>
+            </td>
             <td class="px-3 py-2 text-slate-700"><%= so.label %></td>
             <td class="px-3 py-2 text-slate-700"><%= so.namespace_prefix.presence || "standard" %></td>
             <td class="px-3 py-2 text-slate-700"><%= @sfield_counts[so.id] || 0 %></td>
             <td class="px-3 py-2 text-slate-700"><%= so.custom ? "custom" : "standard" %></td>
+          </tr>
+          <tr id="<%= frame_id %>-row" class="hidden">
+            <td colspan="5" class="p-0 border-0">
+              <%# Frame starts without src — expandable_controller sets src on first toggle %>
+              <%= turbo_frame_tag frame_id do %>
+                <div class="bg-slate-50 px-4 py-3 text-xs text-slate-500">Loading fields…</div>
+              <% end %>
+            </td>
           </tr>
         <% end %>
       </tbody>

@@ -6,7 +6,9 @@ Rails.application.routes.draw do
     member { post :select }
   end
 
-  resources :objects, only: [:index, :show], param: :api_name, constraints: { api_name: %r{[^/.]+} }
+  resources :objects, only: [:index, :show], param: :api_name, constraints: { api_name: %r{[^/.]+} } do
+    member { get :fields }
+  end
 
   resources :erds, only: [:index, :show], param: :slug, constraints: { slug: %r{[^/.]+} }
   resources :clusters, only: [] do

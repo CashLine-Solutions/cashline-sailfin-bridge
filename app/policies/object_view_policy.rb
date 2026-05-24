@@ -9,4 +9,7 @@ class ObjectViewPolicy < ApplicationPolicy
     return true unless run&.include_sensitive
     user.sensitive_data_access?
   end
+
+  # Inline-expand fields panel uses the same access rule as show.
+  alias_method :fields?, :show?
 end
