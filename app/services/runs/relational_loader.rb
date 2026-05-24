@@ -89,6 +89,12 @@ module Runs
         tooling_for_field = tooling_records.find { |t| t["field_developer_name"].to_s == field["name"].to_s.sub(/__c\z/, "") }
         formula = tooling_for_field["formula"] if tooling_for_field
 
+        sensitivity = Ontology::SensitivityClassifier.classify(
+          field: field,
+          sobject_describe: payload,
+          compliance_group: tooling_for_field && tooling_for_field["compliance_group"]
+        )
+
         sfield = Sfield.create!(
           sobject: sobject,
           api_name: field["name"],
@@ -109,7 +115,9 @@ module Runs
           updateable: field.fetch("updateable", true),
           filterable: field.fetch("filterable", true),
           raw_describe: field,
-          tooling_metadata: tooling_for_field
+          tooling_metadata: tooling_for_field,
+          sensitivity: sensitivity[:sensitivity],
+          sensitivity_signals: sensitivity[:signals]
         )
 
         Array(field["picklistValues"]).each do |pv|

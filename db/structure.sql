@@ -72,6 +72,54 @@ ALTER SEQUENCE public.extraction_runs_id_seq OWNED BY public.extraction_runs.id;
 
 
 --
+-- Name: field_profiles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.field_profiles (
+    id bigint NOT NULL,
+    object_profile_id bigint NOT NULL,
+    sfield_id bigint NOT NULL,
+    null_rate double precision,
+    distinct_count integer,
+    distinct_count_suppressed boolean DEFAULT false NOT NULL,
+    min_length integer,
+    max_length integer,
+    avg_length double precision,
+    min_value numeric(30,6),
+    max_value numeric(30,6),
+    mean_value numeric(30,6),
+    p50_value numeric(30,6),
+    p95_value numeric(30,6),
+    min_date timestamp(6) without time zone,
+    max_date timestamp(6) without time zone,
+    top_values jsonb DEFAULT '[]'::jsonb NOT NULL,
+    sample_values jsonb DEFAULT '[]'::jsonb NOT NULL,
+    sensitive_override_used boolean DEFAULT false NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: field_profiles_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.field_profiles_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: field_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.field_profiles_id_seq OWNED BY public.field_profiles.id;
+
+
+--
 -- Name: good_job_batches; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -175,6 +223,44 @@ CREATE TABLE public.good_jobs (
 
 
 --
+-- Name: object_profiles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.object_profiles (
+    id bigint NOT NULL,
+    extraction_run_id bigint NOT NULL,
+    sobject_id bigint NOT NULL,
+    record_count bigint,
+    profiled_at timestamp(6) without time zone,
+    sampled boolean DEFAULT false NOT NULL,
+    sample_size integer,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
+    failure_reason text,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: object_profiles_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.object_profiles_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: object_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.object_profiles_id_seq OWNED BY public.object_profiles.id;
+
+
+--
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -243,7 +329,9 @@ CREATE TABLE public.sfields (
     raw_describe jsonb DEFAULT '{}'::jsonb NOT NULL,
     tooling_metadata jsonb,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    sensitivity character varying DEFAULT 'unknown_sensitivity'::character varying NOT NULL,
+    sensitivity_signals jsonb DEFAULT '[]'::jsonb NOT NULL
 );
 
 
@@ -419,6 +507,20 @@ ALTER TABLE ONLY public.extraction_runs ALTER COLUMN id SET DEFAULT nextval('pub
 
 
 --
+-- Name: field_profiles id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.field_profiles ALTER COLUMN id SET DEFAULT nextval('public.field_profiles_id_seq'::regclass);
+
+
+--
+-- Name: object_profiles id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.object_profiles ALTER COLUMN id SET DEFAULT nextval('public.object_profiles_id_seq'::regclass);
+
+
+--
 -- Name: sessions id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -477,6 +579,14 @@ ALTER TABLE ONLY public.extraction_runs
 
 
 --
+-- Name: field_profiles field_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.field_profiles
+    ADD CONSTRAINT field_profiles_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: good_job_batches good_job_batches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -514,6 +624,14 @@ ALTER TABLE ONLY public.good_job_settings
 
 ALTER TABLE ONLY public.good_jobs
     ADD CONSTRAINT good_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: object_profiles object_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.object_profiles
+    ADD CONSTRAINT object_profiles_pkey PRIMARY KEY (id);
 
 
 --
@@ -612,6 +730,27 @@ CREATE INDEX index_extraction_runs_on_status ON public.extraction_runs USING btr
 --
 
 CREATE INDEX index_extraction_runs_on_user_id ON public.extraction_runs USING btree (user_id);
+
+
+--
+-- Name: index_field_profiles_on_object_profile_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_field_profiles_on_object_profile_id ON public.field_profiles USING btree (object_profile_id);
+
+
+--
+-- Name: index_field_profiles_on_object_profile_id_and_sfield_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_field_profiles_on_object_profile_id_and_sfield_id ON public.field_profiles USING btree (object_profile_id, sfield_id);
+
+
+--
+-- Name: index_field_profiles_on_sfield_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_field_profiles_on_sfield_id ON public.field_profiles USING btree (sfield_id);
 
 
 --
@@ -804,6 +943,27 @@ CREATE INDEX index_good_jobs_on_unfinished_or_errored ON public.good_jobs USING 
 
 
 --
+-- Name: index_object_profiles_on_extraction_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_object_profiles_on_extraction_run_id ON public.object_profiles USING btree (extraction_run_id);
+
+
+--
+-- Name: index_object_profiles_on_extraction_run_id_and_sobject_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_object_profiles_on_extraction_run_id_and_sobject_id ON public.object_profiles USING btree (extraction_run_id, sobject_id);
+
+
+--
+-- Name: index_object_profiles_on_sobject_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_object_profiles_on_sobject_id ON public.object_profiles USING btree (sobject_id);
+
+
+--
 -- Name: index_sessions_on_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -822,6 +982,13 @@ CREATE INDEX index_sfields_on_api_name ON public.sfields USING btree (api_name);
 --
 
 CREATE INDEX index_sfields_on_calculated ON public.sfields USING btree (calculated);
+
+
+--
+-- Name: index_sfields_on_sensitivity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_sfields_on_sensitivity ON public.sfields USING btree (sensitivity);
 
 
 --
@@ -923,6 +1090,14 @@ CREATE INDEX index_users_on_role ON public.users USING btree (role);
 
 
 --
+-- Name: field_profiles fk_rails_06ce0ffcd5; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.field_profiles
+    ADD CONSTRAINT fk_rails_06ce0ffcd5 FOREIGN KEY (sfield_id) REFERENCES public.sfields(id);
+
+
+--
 -- Name: sfields fk_rails_2e78504528; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -931,11 +1106,27 @@ ALTER TABLE ONLY public.sfields
 
 
 --
+-- Name: field_profiles fk_rails_306fd95d96; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.field_profiles
+    ADD CONSTRAINT fk_rails_306fd95d96 FOREIGN KEY (object_profile_id) REFERENCES public.object_profiles(id);
+
+
+--
 -- Name: sobjects fk_rails_31b28ecd97; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sobjects
     ADD CONSTRAINT fk_rails_31b28ecd97 FOREIGN KEY (extraction_run_id) REFERENCES public.extraction_runs(id);
+
+
+--
+-- Name: object_profiles fk_rails_40cefa1d40; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.object_profiles
+    ADD CONSTRAINT fk_rails_40cefa1d40 FOREIGN KEY (extraction_run_id) REFERENCES public.extraction_runs(id);
 
 
 --
@@ -960,6 +1151,14 @@ ALTER TABLE ONLY public.srelationships
 
 ALTER TABLE ONLY public.sessions
     ADD CONSTRAINT fk_rails_758836b4f0 FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: object_profiles fk_rails_7f4c3cd680; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.object_profiles
+    ADD CONSTRAINT fk_rails_7f4c3cd680 FOREIGN KEY (sobject_id) REFERENCES public.sobjects(id);
 
 
 --
@@ -1001,6 +1200,9 @@ ALTER TABLE ONLY public.spicklist_values
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260524014600'),
+('20260524014500'),
+('20260524014400'),
 ('20260524014300'),
 ('20260524014200'),
 ('20260524014100'),

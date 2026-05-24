@@ -28,6 +28,8 @@ gem "restforce", "~> 8.0"
 gem "jwt", "~> 2.9"
 # Direct HTTP client for Bulk API 2.0 (Restforce only covers Bulk 1.0)
 gem "faraday", "~> 2"
+# Bulk 2.0 returns query results as CSV; csv leaves the stdlib in Ruby 3.4.
+gem "csv", "~> 3.3"
 # Background jobs — GoodJob over Solid Queue for free concurrency-control keys (see plan Key Decisions)
 gem "good_job", "~> 4.0"
 # Jobs dashboard in Rails 8
