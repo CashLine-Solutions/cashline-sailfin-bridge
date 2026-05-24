@@ -1,0 +1,64 @@
+# PostgreSQL multi-database configuration.
+#
+# Three databases:
+#   - primary:    application data (objects, fields, runs, profiles, GoodJob)
+#   - audit:      append-only audit events; runs under a separate role with
+#                 INSERT-only privileges + a BEFORE UPDATE OR DELETE trigger
+#   - cache:      Solid Cache backend (token cache, Rails.cache)
+#
+# The audit DB uses two roles:
+#   - cashline_audit_owner — owns the table and trigger; runs migrations only
+#   - cashline_audit_writer — Rails runtime role, INSERT/SELECT only
+# See lib/tasks/audit.rake for role provisioning.
+
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+
+development:
+  primary:
+    <<: *default
+    database: cashline_ontology_development
+  cache:
+    <<: *default
+    database: cashline_ontology_development_cache
+    migrations_paths: db/cache_migrate
+  audit:
+    <<: *default
+    database: cashline_ontology_development_audit
+    migrations_paths: db/audit_migrate
+    # In development we use the same Postgres role as primary for convenience.
+    # The audit role separation is enforced in production (and in CI smoke tests).
+
+test:
+  primary:
+    <<: *default
+    database: cashline_ontology_test
+  cache:
+    <<: *default
+    database: cashline_ontology_test_cache
+    migrations_paths: db/cache_migrate
+  audit:
+    <<: *default
+    database: cashline_ontology_test_audit
+    migrations_paths: db/audit_migrate
+
+production:
+  primary: &primary_production
+    <<: *default
+    database: cashline_ontology_production
+    username: cashline_ontology
+    password: <%= ENV["CASHLINE_ONTOLOGY_DATABASE_PASSWORD"] %>
+  cache:
+    <<: *primary_production
+    database: cashline_ontology_production_cache
+    migrations_paths: db/cache_migrate
+  audit:
+    <<: *primary_production
+    database: cashline_ontology_production_audit
+    migrations_paths: db/audit_migrate
+    # Runtime connects as the writer role (INSERT-only). Migrations are run
+    # separately via the owner role — see lib/tasks/audit.rake.
+    username: <%= ENV.fetch("CASHLINE_AUDIT_WRITER_USERNAME", "cashline_audit_writer") %>
+    password: <%= ENV["CASHLINE_AUDIT_WRITER_PASSWORD"] %>
