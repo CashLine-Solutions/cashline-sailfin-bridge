@@ -37,7 +37,10 @@ export default class extends Controller {
       const data = await resp.json()
       if (!this.alive) return
 
-      this.data = data
+      // Note: do NOT assign to `this.data` — Stimulus reserves it as a
+      // read-only getter wrapping the element's data-* attributes.
+      // The local `data` variable is captured in the namespace-filter
+      // build below; no need to stash it on the controller.
       this.cy = cytoscape({
         container: this.canvasTarget,
         elements: this.buildElements(data),
@@ -62,7 +65,13 @@ export default class extends Controller {
       }
     } catch (e) {
       if (e.name === "AbortError") return
-      console.warn("Cytoscape not available", e)
+      // Distinguish import failures (CDN/importmap) from runtime errors
+      // so the console message points at the right thing.
+      if (e.message?.includes("Failed to fetch") || e.message?.includes("Failed to resolve module")) {
+        console.warn("[graph] Cytoscape failed to load — check importmap pin", e)
+      } else {
+        console.error("[graph] render failed", e)
+      }
     }
   }
 
