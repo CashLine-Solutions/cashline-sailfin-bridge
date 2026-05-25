@@ -30,6 +30,7 @@ Rails.application.routes.draw do
   namespace :reports do
     get :hub_orphan
     get :unused_fields
+    get :mapping_order
   end
 
   resources :diffs, only: [ :new, :create, :show ]

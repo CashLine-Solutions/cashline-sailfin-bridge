@@ -1,0 +1,63 @@
+<% content_for(:title, "Mapping order") %>
+<%= render "tabs", active: "mapping_order" %>
+<div class="flex items-center justify-between mb-4">
+  <div>
+    <h1 class="text-2xl font-semibold">Suggested mapping order</h1>
+    <p class="text-sm text-slate-600">Walk the buckets top-to-bottom so dependents can point at already-mapped anchors. This is a heuristic — adjust as you learn the domain.</p>
+  </div>
+  <% if @run %><%= link_to "Download CSV", reports_mapping_order_path(run: @run.id, format: :csv), class: "rounded bg-slate-200 px-3 py-2 text-sm" %><% end %>
+</div>
+
+<% if @run.nil? %>
+  <p class="text-slate-700">No active run. <%= link_to "Pick one", runs_path, class: "text-blue-700 underline" %>.</p>
+<% else %>
+  <%
+    bucket_meta = {
+      "anchor"   => { badge_class: "bg-emerald-100 text-emerald-900", title: "Anchors — map these first", blurb: "Heavily referenced; their mappings become the range of object properties on everything else." },
+      "entity"   => { badge_class: "bg-blue-100 text-blue-900",       title: "Entities — substantive objects", blurb: "The bulk of the domain. Ordered most-referenced first." },
+      "junction" => { badge_class: "bg-amber-100 text-amber-900",     title: "Junctions — link tables", blurb: "Map last; they're typically associations between already-mapped entities." }
+    }
+  %>
+  <% bucket_order.each do |bucket| %>
+    <% meta = bucket_meta[bucket] %>
+    <% rows = @bucketed[bucket] || [] %>
+    <% next if rows.empty? %>
+    <section class="rounded border border-slate-200 bg-white p-4 mb-6">
+      <header class="mb-3">
+        <h2 class="text-lg font-semibold">
+          <span class="inline-block rounded <%= meta[:badge_class] %> px-2 py-0.5 text-xs uppercase tracking-wide mr-2"><%= bucket %></span>
+          <%= meta[:title] %> <span class="text-slate-500 text-sm font-normal">(<%= rows.size %>)</span>
+        </h2>
+        <p class="text-sm text-slate-600 mt-1"><%= meta[:blurb] %></p>
+      </header>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+          <thead class="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
+            <tr>
+              <th class="px-3 py-2">#</th>
+              <th class="px-3 py-2">Object</th>
+              <th class="px-3 py-2">Namespace</th>
+              <th class="px-3 py-2">Fields</th>
+              <th class="px-3 py-2">Inbound</th>
+              <th class="px-3 py-2">Outbound</th>
+              <th class="px-3 py-2">Rationale</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <% rows.each_with_index do |r, idx| %>
+              <tr>
+                <td class="px-3 py-2 text-slate-500 text-xs"><%= idx + 1 %></td>
+                <td class="px-3 py-2"><%= link_to r[:api_name], object_path(r[:api_name], run: @run.id), class: "font-mono text-blue-700 underline" %></td>
+                <td class="px-3 py-2 text-slate-700 text-xs"><%= r[:namespace_prefix].presence || "standard" %></td>
+                <td class="px-3 py-2 text-slate-700"><%= r[:field_count] %></td>
+                <td class="px-3 py-2 text-slate-700"><%= r[:in_count] %></td>
+                <td class="px-3 py-2 text-slate-700"><%= r[:out_count] %></td>
+                <td class="px-3 py-2 text-slate-600 text-xs"><%= r[:rationale] %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  <% end %>
+<% end %>

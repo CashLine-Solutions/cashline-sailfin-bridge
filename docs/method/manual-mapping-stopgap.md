@@ -45,7 +45,7 @@ Pick objects in roughly the order their references flow:
 2. **Then the entities** — `sfsrm__Invoice__c`, `sfsrm__Payment__c`, etc.
 3. **Then the junctions** — `sfsrm__Invoice_Line__c`, association objects, etc.
 
-Use the **Hub / orphan report** (`/reports/hub_orphan?run=<id>`) to identify the highly-connected objects — they're the ones worth mapping first.
+For a head start on the order, open the **Mapping-order report** (`/reports/mapping_order?run=<id>`) — it classifies every object as an *anchor*, *entity*, or *junction* and renders them in walk order. The **Hub / orphan report** (`/reports/hub_orphan?run=<id>`) is also useful for spotting the most-connected objects.
 
 For each object:
 
