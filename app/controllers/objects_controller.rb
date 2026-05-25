@@ -88,7 +88,7 @@ class ObjectsController < ApplicationController
     @field_profile = @object_profile ? FieldProfile.find_by(object_profile: @object_profile, sfield: @sfield) : nil
     @outgoing_relationships = Srelationship.where(extraction_run: @run, source_field: @sfield)
       .includes(:target_sobject).to_a
-    @prev_sfield, @next_sfield = field_neighbors(@sobject, @sfield)
+    @prev_sfield, @next_sfield = @sobject.field_neighbors(@sfield)
     render layout: false if turbo_frame_request?
   end
 
@@ -114,14 +114,5 @@ class ObjectsController < ApplicationController
   def filter_namespace(scope, ns)
     return scope.where(namespace_prefix: nil).or(scope.where(namespace_prefix: "")) if ns == "standard"
     scope.where(namespace_prefix: ns)
-  end
-
-  # Returns [prev_api_name, next_api_name] for sequential walkthroughs.
-  # Ordering matches the fields panel's default sort (alphabetical by api_name).
-  def field_neighbors(sobject, sfield)
-    ordered = sobject.sfields.order(:api_name).pluck(:api_name)
-    idx = ordered.index(sfield.api_name)
-    return [ nil, nil ] if idx.nil?
-    [ idx.positive? ? ordered[idx - 1] : nil, ordered[idx + 1] ]
   end
 end

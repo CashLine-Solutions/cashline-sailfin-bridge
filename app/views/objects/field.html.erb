@@ -5,14 +5,17 @@
       fields table). Frame ID matches the row's data-expandable-frame-id.
     - Direct request: full-page sequential viewer with breadcrumb + prev/next.
       The standalone path is what designers walking field-by-field will use. %>
+<% panel_locals = {
+     sobject: @sobject, sfield: @sfield,
+     field_profile: @field_profile, object_profile: @object_profile,
+     outgoing_relationships: @outgoing_relationships, run: @run,
+     hide_value_cols: hide_value_cols, can_see_sensitive: can_see_sensitive,
+     prev_field: @prev_sfield, next_field: @next_sfield,
+     inline: turbo_frame_request?
+   } %>
 <% if turbo_frame_request? %>
   <%= turbo_frame_tag dom_id(@sfield, :detail) do %>
-    <%= render "field_detail_panel",
-          sobject: @sobject, sfield: @sfield,
-          field_profile: @field_profile, object_profile: @object_profile,
-          outgoing_relationships: @outgoing_relationships, run: @run,
-          hide_value_cols: hide_value_cols, can_see_sensitive: can_see_sensitive,
-          prev_field: @prev_sfield, next_field: @next_sfield, inline: true %>
+    <%= render "field_detail_panel", **panel_locals %>
   <% end %>
 <% else %>
   <% content_for(:title, "#{@sobject.api_name} · #{@sfield.api_name}") %>
@@ -24,10 +27,5 @@
     <span class="font-mono"><%= @sfield.api_name %></span>
   </nav>
 
-  <%= render "field_detail_panel",
-        sobject: @sobject, sfield: @sfield,
-        field_profile: @field_profile, object_profile: @object_profile,
-        outgoing_relationships: @outgoing_relationships, run: @run,
-        hide_value_cols: hide_value_cols, can_see_sensitive: can_see_sensitive,
-        prev_field: @prev_sfield, next_field: @next_sfield, inline: false %>
+  <%= render "field_detail_panel", **panel_locals %>
 <% end %>

@@ -4,7 +4,7 @@ class ReportsController < ApplicationController
   def hub_orphan
     if @run.nil?
       skip_authorization
-      return render :hub_orphan
+      return render :hub_orphan, formats: [ :html ]
     end
     authorize @run, :show?
 
@@ -44,7 +44,7 @@ class ReportsController < ApplicationController
   def mapping_order
     if @run.nil?
       skip_authorization
-      return render :mapping_order
+      return render :mapping_order, formats: [ :html ]
     end
     authorize @run, :show?
 
@@ -55,7 +55,11 @@ class ReportsController < ApplicationController
              COALESCE(i.in_count, 0)     AS in_count
       FROM sobjects s
       LEFT JOIN (
-        SELECT sobject_id, COUNT(*) AS field_count FROM sfields GROUP BY sobject_id
+        SELECT sf.sobject_id, COUNT(*) AS field_count
+        FROM sfields sf
+        JOIN sobjects so ON so.id = sf.sobject_id
+        WHERE so.extraction_run_id = $1
+        GROUP BY sf.sobject_id
       ) f ON f.sobject_id = s.id
       LEFT JOIN (
         SELECT source_sobject_id, COUNT(*) AS out_count
@@ -73,6 +77,7 @@ class ReportsController < ApplicationController
 
     classified = rows.to_a.map { |r| classify(r.symbolize_keys) }
     @bucketed = BUCKET_ORDER.to_h { |b| [ b, sort_in_bucket(classified.select { |r| r[:bucket] == b }, b) ] }
+    @bucket_order = BUCKET_ORDER
     # Flat ordered list for CSV/JSON consumers and the .csv branch below.
     @rows = BUCKET_ORDER.flat_map { |b| @bucketed[b] }
 
@@ -88,7 +93,7 @@ class ReportsController < ApplicationController
   def unused_fields
     if @run.nil?
       skip_authorization
-      return render :unused_fields
+      return render :unused_fields, formats: [ :html ]
     end
     authorize @run, :show?
 
@@ -112,12 +117,17 @@ class ReportsController < ApplicationController
   private
 
   # Heuristic bucketing for the mapping-order report. The thresholds reflect
-  # what's worked in practice: junctions have few non-ref fields, anchors
-  # are heavily referenced but reference little themselves, everything else
+  # what's worked in practice: anchors are heavily referenced but reference
+  # little themselves, junctions have few non-ref fields, everything else
   # is an entity. Designers should treat the suggested order as a starting
   # point, not gospel.
   JUNCTION_NON_REF_FIELDS_MAX = 4
   ANCHOR_IN_COUNT_MIN = 5
+
+  # Bucket order for rendering. Within each bucket, anchors and entities
+  # sort by inbound-degree desc (most-referenced first), junctions sort
+  # alphabetically (no meaningful dependency between junctions).
+  BUCKET_ORDER = %w[anchor entity junction].freeze
 
   def classify(row)
     field_count = row[:field_count].to_i
@@ -125,22 +135,20 @@ class ReportsController < ApplicationController
     in_count = row[:in_count].to_i
     non_ref_field_count = [ field_count - out_count, 0 ].max
 
+    # Anchor before junction: a heavily-referenced hub that also points at
+    # 2+ other objects belongs in the anchor bucket (map first), not the
+    # junction bucket (map last).
     bucket, rationale =
-      if out_count >= 2 && non_ref_field_count <= JUNCTION_NON_REF_FIELDS_MAX
-        [ "junction", "links #{out_count} other objects with only #{non_ref_field_count} business fields" ]
-      elsif in_count >= ANCHOR_IN_COUNT_MIN && in_count >= out_count
+      if in_count >= ANCHOR_IN_COUNT_MIN && in_count >= out_count
         [ "anchor", "referenced by #{in_count} others; map first so dependents can point at it" ]
+      elsif out_count >= 2 && non_ref_field_count <= JUNCTION_NON_REF_FIELDS_MAX
+        [ "junction", "links #{out_count} other objects with only #{non_ref_field_count} business fields" ]
       else
         [ "entity", "#{field_count} fields, #{in_count} inbound / #{out_count} outbound refs" ]
       end
 
     row.merge(bucket: bucket, non_ref_field_count: non_ref_field_count, rationale: rationale)
   end
-
-  # Bucket order for rendering. Within each bucket, anchors and entities
-  # sort by inbound-degree desc (most-referenced first), junctions sort
-  # alphabetically (no meaningful dependency between junctions).
-  BUCKET_ORDER = %w[anchor entity junction].freeze
 
   def sort_in_bucket(rows, bucket)
     case bucket
@@ -149,12 +157,6 @@ class ReportsController < ApplicationController
     else
       rows.sort_by { |r| [ -r[:in_count].to_i, -r[:field_count].to_i, r[:api_name].to_s.downcase ] }
     end
-  end
-
-  helper_method :bucket_order
-
-  def bucket_order
-    BUCKET_ORDER
   end
 
   def load_run

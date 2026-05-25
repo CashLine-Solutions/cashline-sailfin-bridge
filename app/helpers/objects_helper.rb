@@ -45,6 +45,11 @@ module ObjectsHelper
     target_iri confidence notes
   ].freeze
 
+  # Blank columns shipped at the end of every row for designers to fill in:
+  # target_iri / confidence / notes. Kept as a named constant so a future
+  # CSV_HEADERS reorder can't silently misalign them.
+  MAPPING_PLACEHOLDERS = [ nil, nil, nil ].freeze
+
   private
 
   def csv_row_for(sobject, sfield, fp, record_count, ref_target)
@@ -61,7 +66,7 @@ module ObjectsHelper
       fp&.min_date&.iso8601, fp&.max_date&.iso8601,
       fp ? fp.top_values.present? : nil, fp ? fp.sample_values.present? : nil,
       sfield.calculated_formula,
-      nil, nil, nil
+      *MAPPING_PLACEHOLDERS
     ]
   end
 

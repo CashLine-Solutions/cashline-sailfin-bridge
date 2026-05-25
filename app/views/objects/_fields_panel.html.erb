@@ -13,7 +13,13 @@
       compact         — bool, render in inline-expand mode (omits some chrome) %>
 
 <% compact = local_assigns.fetch(:compact, false) %>
-<% type_counts = sfields.group_by(&:data_type).transform_values(&:size).sort_by { |_t, c| -c } %>
+<%# Skip fields with a nil data_type from the chip row — they'd render as an
+    unlabelled blank chip. Rare in practice (the column is nullable) but
+    the chip UI doesn't have meaningful labelling for them. %>
+<% type_counts = sfields.reject { |f| f.data_type.blank? }
+                        .group_by(&:data_type)
+                        .transform_values(&:size)
+                        .sort_by { |_t, c| -c } %>
 <% chip_active = "rounded bg-slate-900 text-white px-2 py-1 text-[11px] font-medium" %>
 <% chip_inactive = "rounded border border-slate-300 bg-white text-slate-700 hover:border-slate-500 px-2 py-1 text-[11px]" %>
 

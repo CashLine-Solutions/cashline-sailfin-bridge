@@ -4,10 +4,10 @@
   <% tab_active = "rounded bg-slate-900 text-white px-3 py-1 font-medium" %>
   <% tab_inactive = "rounded border border-slate-300 text-slate-700 hover:border-slate-500 px-3 py-1" %>
   <% [
-    [ "Hub / orphan", :reports_hub_orphan_path, "hub_orphan" ],
-    [ "Unused fields", :reports_unused_fields_path, "unused_fields" ],
-    [ "Mapping order", :reports_mapping_order_path, "mapping_order" ]
+    [ "Hub / orphan",  reports_hub_orphan_path,    "hub_orphan" ],
+    [ "Unused fields", reports_unused_fields_path, "unused_fields" ],
+    [ "Mapping order", reports_mapping_order_path, "mapping_order" ]
   ].each do |label, path, action| %>
-    <%= link_to label, send(path), class: (active == action ? tab_active : tab_inactive) %>
+    <%= link_to label, path, class: (active == action ? tab_active : tab_inactive) %>
   <% end %>
 </nav>

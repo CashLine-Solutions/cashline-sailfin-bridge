@@ -12,4 +12,14 @@ class Sobject < ApplicationRecord
   has_one :cluster, through: :cluster_assignment
 
   validates :api_name, presence: true
+
+  # Returns [prev_api_name, next_api_name] for alphabetical sequential
+  # navigation through this sobject's fields. Used by the standalone
+  # field detail page's prev/next links.
+  def field_neighbors(sfield)
+    ordered = sfields.order(:api_name).pluck(:api_name)
+    idx = ordered.index(sfield.api_name)
+    return [ nil, nil ] if idx.nil?
+    [ idx.positive? ? ordered[idx - 1] : nil, ordered[idx + 1] ]
+  end
 end

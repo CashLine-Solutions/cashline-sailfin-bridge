@@ -37,23 +37,26 @@
         <% end %>
       </p>
     </div>
+    <% inline = local_assigns.fetch(:inline, false) %>
+    <% prev_field = local_assigns.fetch(:prev_field, nil) %>
+    <% next_field = local_assigns.fetch(:next_field, nil) %>
     <div class="flex items-center gap-2 text-xs">
-      <% if local_assigns.fetch(:inline, false) %>
+      <% if inline %>
         <%= link_to "↗ Open", field_object_path(sobject.api_name, field_name: f.api_name, run: run.id),
                     class: "text-blue-700 underline mr-2",
                     data: { turbo_frame: "_top" },
                     title: "Open this field in its own page" %>
       <% end %>
-      <% if local_assigns[:prev_field].present? %>
-        <%= link_to "← " + local_assigns[:prev_field], field_object_path(sobject.api_name, field_name: local_assigns[:prev_field], run: run.id),
+      <% if prev_field.present? %>
+        <%= link_to "← " + prev_field, field_object_path(sobject.api_name, field_name: prev_field, run: run.id),
                     class: "rounded border border-slate-300 px-2 py-1 hover:border-slate-500 font-mono",
                     data: { turbo_frame: "_top" },
                     title: "Previous field" %>
       <% else %>
         <span class="rounded border border-slate-200 text-slate-400 px-2 py-1 cursor-not-allowed">← prev</span>
       <% end %>
-      <% if local_assigns[:next_field].present? %>
-        <%= link_to local_assigns[:next_field] + " →", field_object_path(sobject.api_name, field_name: local_assigns[:next_field], run: run.id),
+      <% if next_field.present? %>
+        <%= link_to next_field + " →", field_object_path(sobject.api_name, field_name: next_field, run: run.id),
                     class: "rounded border border-slate-300 px-2 py-1 hover:border-slate-500 font-mono",
                     data: { turbo_frame: "_top" },
                     title: "Next field" %>

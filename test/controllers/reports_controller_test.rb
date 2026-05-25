@@ -107,7 +107,97 @@ class ReportsControllerTest < ActionDispatch::IntegrationTest
     get reports_mapping_order_path(run: @run.id, format: :csv)
     assert_response :success
     assert_equal "text/csv", response.media_type
-    assert_match(/bucket,api_name/, response.body.lines.first)
+    rows = response.body.lines
+    assert_match(/bucket,api_name/, rows.first)
+    # At least the three setup sobjects (A, B, OrphanObj) must appear as data rows.
+    assert rows.size > 1, "CSV should emit data rows, not just the header"
+    assert response.body.include?("A,") || response.body.include?(",A,"),
+           "CSV should include a row for the 'A' sobject from setup"
+  end
+
+  test "mapping_order anchor wins over junction when both conditions are met" do
+    # An object with high in_count AND out_count >= 2 AND non_ref_field_count <= 4
+    # used to be misclassified as a junction. Classify now evaluates anchor first.
+    hub = Sobject.create!(extraction_run: @run, api_name: "HubObj", raw_describe: {})
+    2.times { |i| Sfield.create!(sobject: hub, api_name: "HF#{i}", data_type: "reference", sensitivity: "safe", raw_describe: {}) }
+    # 2 outbound refs (junction-shape), 6 inbound refs (anchor-shape).
+    target_x = Sobject.create!(extraction_run: @run, api_name: "HubTargetX", raw_describe: {})
+    target_y = Sobject.create!(extraction_run: @run, api_name: "HubTargetY", raw_describe: {})
+    Srelationship.create!(extraction_run: @run, source_sobject: hub, target_sobject: target_x)
+    Srelationship.create!(extraction_run: @run, source_sobject: hub, target_sobject: target_y)
+    6.times do |i|
+      src = Sobject.create!(extraction_run: @run, api_name: "HubDep#{i}", raw_describe: {})
+      Srelationship.create!(extraction_run: @run, source_sobject: src, target_sobject: hub)
+    end
+
+    sign_in(@user)
+    get reports_mapping_order_path(run: @run.id, format: :csv)
+    assert_response :success
+    hub_row = response.body.lines.find { |l| l.start_with?("anchor,HubObj,") }
+    assert hub_row, "HubObj should be classified as anchor when both anchor and junction conditions match"
+  end
+
+  test "mapping_order classify boundary cases" do
+    # Anchor at in_count == ANCHOR_IN_COUNT_MIN (5)
+    anchor_edge = Sobject.create!(extraction_run: @run, api_name: "AnchorEdge", raw_describe: {})
+    5.times do |i|
+      src = Sobject.create!(extraction_run: @run, api_name: "AE_Dep#{i}", raw_describe: {})
+      Srelationship.create!(extraction_run: @run, source_sobject: src, target_sobject: anchor_edge)
+    end
+    # Just under anchor threshold (in_count = 4) → entity
+    near_anchor = Sobject.create!(extraction_run: @run, api_name: "NearAnchor", raw_describe: {})
+    4.times do |i|
+      src = Sobject.create!(extraction_run: @run, api_name: "NA_Dep#{i}", raw_describe: {})
+      Srelationship.create!(extraction_run: @run, source_sobject: src, target_sobject: near_anchor)
+    end
+    # Junction at non_ref_field_count == JUNCTION_NON_REF_FIELDS_MAX (4)
+    junction_edge = Sobject.create!(extraction_run: @run, api_name: "JunctionEdge", raw_describe: {})
+    Sfield.create!(sobject: junction_edge, api_name: "JE_R1", data_type: "reference", sensitivity: "safe", raw_describe: {})
+    Sfield.create!(sobject: junction_edge, api_name: "JE_R2", data_type: "reference", sensitivity: "safe", raw_describe: {})
+    4.times { |i| Sfield.create!(sobject: junction_edge, api_name: "JE_F#{i}", data_type: "string", sensitivity: "safe", raw_describe: {}) }
+    je_target1 = Sobject.create!(extraction_run: @run, api_name: "JE_TargetA", raw_describe: {})
+    je_target2 = Sobject.create!(extraction_run: @run, api_name: "JE_TargetB", raw_describe: {})
+    Srelationship.create!(extraction_run: @run, source_sobject: junction_edge, target_sobject: je_target1)
+    Srelationship.create!(extraction_run: @run, source_sobject: junction_edge, target_sobject: je_target2)
+    # Just over junction threshold (non_ref_field_count = 5) → entity
+    near_junction = Sobject.create!(extraction_run: @run, api_name: "NearJunction", raw_describe: {})
+    Sfield.create!(sobject: near_junction, api_name: "NJ_R1", data_type: "reference", sensitivity: "safe", raw_describe: {})
+    Sfield.create!(sobject: near_junction, api_name: "NJ_R2", data_type: "reference", sensitivity: "safe", raw_describe: {})
+    5.times { |i| Sfield.create!(sobject: near_junction, api_name: "NJ_F#{i}", data_type: "string", sensitivity: "safe", raw_describe: {}) }
+    nj_target1 = Sobject.create!(extraction_run: @run, api_name: "NJ_TargetA", raw_describe: {})
+    nj_target2 = Sobject.create!(extraction_run: @run, api_name: "NJ_TargetB", raw_describe: {})
+    Srelationship.create!(extraction_run: @run, source_sobject: near_junction, target_sobject: nj_target1)
+    Srelationship.create!(extraction_run: @run, source_sobject: near_junction, target_sobject: nj_target2)
+
+    sign_in(@user)
+    get reports_mapping_order_path(run: @run.id, format: :csv)
+    assert_response :success
+    rows = response.body.lines
+
+    assert rows.any? { |l| l.start_with?("anchor,AnchorEdge,") },     "in_count=5 should be anchor"
+    assert rows.any? { |l| l.start_with?("entity,NearAnchor,") },    "in_count=4 should be entity"
+    assert rows.any? { |l| l.start_with?("junction,JunctionEdge,") }, "non_ref_field_count=4 should be junction"
+    assert rows.any? { |l| l.start_with?("entity,NearJunction,") },  "non_ref_field_count=5 should be entity"
+  end
+
+  test "mapping_order permits sensitive run for users with sensitive_data_access" do
+    privileged = User.create!(email_address: "mapping-pp@example.com", password: "secret-pass-1", role: :analyst, sensitive_data_access: true)
+    sensitive_run = ExtractionRun.create!(api_version: "62.0", user: privileged, seed_objects: %w[Account], status: "complete", completed_at: Time.current, include_sensitive: true)
+    Sobject.create!(extraction_run: sensitive_run, api_name: "SensitiveMappingObj", raw_describe: {})
+
+    sign_in(privileged)
+    get reports_mapping_order_path(run: sensitive_run.id)
+
+    assert_response :success
+    assert_match("SensitiveMappingObj", response.body)
+  end
+
+  test "mapping_order nil-run + .csv does not raise MissingTemplate" do
+    sign_in(@user)
+    # No run= param and no session-active run → @run is nil → returns the html
+    # placeholder regardless of requested format. Must not 500.
+    get reports_mapping_order_path(format: :csv)
+    assert_response :success
   end
 
   test "mapping_order blocks sensitive run for users without sensitive_data_access" do

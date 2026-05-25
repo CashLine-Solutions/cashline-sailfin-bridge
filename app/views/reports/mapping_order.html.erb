@@ -18,7 +18,7 @@
       "junction" => { badge_class: "bg-amber-100 text-amber-900",     title: "Junctions — link tables", blurb: "Map last; they're typically associations between already-mapped entities." }
     }
   %>
-  <% bucket_order.each do |bucket| %>
+  <% @bucket_order.each do |bucket| %>
     <% meta = bucket_meta[bucket] %>
     <% rows = @bucketed[bucket] || [] %>
     <% next if rows.empty? %>

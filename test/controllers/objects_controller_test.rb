@@ -156,6 +156,15 @@ class ObjectsControllerTest < ActionDispatch::IntegrationTest
     assert rows.first.include?("sobject_api_name"), "first row should be CSV headers"
     assert rows.first.include?("field_api_name")
     assert rows.first.include?("null_rate")
+    # Mapping columns are appended for designers to fill in.
+    assert rows.first.include?("target_iri"), "CSV header must include target_iri"
+    assert rows.first.include?("confidence"), "CSV header must include confidence"
+    assert rows.first.include?("notes"), "CSV header must include notes"
+    # Header width matches data row width — guards against silent column drift.
+    require "csv"
+    header_count = CSV.parse_line(rows.first).size
+    assert_equal header_count, CSV.parse_line(rows[1]).size,
+                 "data row column count must equal header column count"
     # @safe + @pii are the only sfields on @sobject → 2 data rows.
     field_rows = rows[1..]
     assert_equal 2, field_rows.size
@@ -241,6 +250,26 @@ class ObjectsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     # Last field: prev exists (Email), next is disabled.
     assert_match(/← Email/, response.body)
+    assert_match(/cursor-not-allowed[^>]*>next →/, response.body)
+  end
+
+  test "field action disables prev link on the first field of an sobject" do
+    sign_in(@analyst)
+    # @pii (Email) is alphabetically BEFORE @safe (Name), so it's the first field.
+    get field_object_path(@sobject.api_name, field_name: @pii.api_name, run: @run.id)
+    assert_response :success
+    assert_match(/cursor-not-allowed[^>]*>← prev/, response.body)
+    assert_match(/Name →/, response.body)
+  end
+
+  test "field action disables both prev and next on a single-field sobject" do
+    solo_sobject = Sobject.create!(extraction_run: @run, api_name: "Solo", raw_describe: {})
+    solo_field = Sfield.create!(sobject: solo_sobject, api_name: "OnlyField", data_type: "string", sensitivity: "safe", raw_describe: {})
+
+    sign_in(@analyst)
+    get field_object_path(solo_sobject.api_name, field_name: solo_field.api_name, run: @run.id)
+    assert_response :success
+    assert_match(/cursor-not-allowed[^>]*>← prev/, response.body)
     assert_match(/cursor-not-allowed[^>]*>next →/, response.body)
   end
 

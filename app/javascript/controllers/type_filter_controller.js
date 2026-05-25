@@ -23,6 +23,9 @@ import { Controller } from "@hotwired/stimulus"
 //
 // Uses Tailwind's `hidden` class to toggle row visibility, which preserves
 // any existing inline state (expanded detail panels survive filtering).
+//
+// Class toggling on chips uses classList.add/remove on parsed token lists
+// so any class added by another controller is preserved across paints.
 export default class extends Controller {
   static targets = ["chip"]
   static values = {
@@ -33,6 +36,7 @@ export default class extends Controller {
 
   connect() {
     this.#paintChips()
+    this.#applyFilter()
   }
 
   filter(event) {
@@ -43,10 +47,23 @@ export default class extends Controller {
     this.#applyFilter()
   }
 
+  #activeTokens() {
+    return this.activeClassValue.split(/\s+/).filter(Boolean)
+  }
+
+  #inactiveTokens() {
+    return this.inactiveClassValue.split(/\s+/).filter(Boolean)
+  }
+
   #paintChips() {
+    const activeTokens = this.#activeTokens()
+    const inactiveTokens = this.#inactiveTokens()
     this.chipTargets.forEach(chip => {
       const isActive = chip.dataset.typeValue === this.activeValue
-      chip.className = isActive ? this.activeClassValue : this.inactiveClassValue
+      const toAdd = isActive ? activeTokens : inactiveTokens
+      const toRemove = isActive ? inactiveTokens : activeTokens
+      toRemove.forEach(c => chip.classList.remove(c))
+      toAdd.forEach(c => chip.classList.add(c))
     })
   }
 
