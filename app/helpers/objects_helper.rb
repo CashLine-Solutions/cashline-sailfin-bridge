@@ -42,6 +42,7 @@ module ObjectsHelper
     min_date max_date
     has_top_values has_samples
     formula
+    target_iri confidence notes
   ].freeze
 
   private
@@ -59,7 +60,8 @@ module ObjectsHelper
       fp&.min_value, fp&.max_value, fp&.mean_value, fp&.p50_value, fp&.p95_value,
       fp&.min_date&.iso8601, fp&.max_date&.iso8601,
       fp ? fp.top_values.present? : nil, fp ? fp.sample_values.present? : nil,
-      sfield.calculated_formula
+      sfield.calculated_formula,
+      nil, nil, nil
     ]
   end
 

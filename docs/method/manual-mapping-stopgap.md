@@ -25,13 +25,15 @@ The chip URLs are bookmarkable. Save a few combinations for the team.
 
 ### Step 2 — Take the CSV in your back pocket
 
-Hit **Download CSV** in the top-right. You get one row per field with 37 columns of metadata + profile stats. Open it in a spreadsheet (Numbers, Google Sheets, Excel). Add three columns on the right:
+Hit **Download CSV** in the top-right. You get one row per field with 37 columns of metadata + profile stats and three empty columns at the end for your mapping work:
 
 | Column | Purpose |
 |---|---|
 | `target_iri` | Your proposed mapping (e.g., `fibo-fnd-acc-cur:Invoice`) |
 | `confidence` | `high` / `medium` / `low` — your conviction about the mapping |
 | `notes` | Anything ambiguous: polymorphism, dual semantics, deprecated field, etc. |
+
+Open it in a spreadsheet (Numbers, Google Sheets, Excel) and fill those three columns as you go.
 
 For namespace prefixes, the working list is in [`docs/brainstorms/2026-05-23-sailfin-extraction-and-ontology-requirements.md`](../brainstorms/2026-05-23-sailfin-extraction-and-ontology-requirements.md) (FIBO modules, schema.org). Keep that doc open in a side tab.
 
