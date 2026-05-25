@@ -145,6 +145,60 @@ class ObjectsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "index responds to .csv with one row per field, header row included" do
+    sign_in(@analyst)
+    post select_run_path(@run)
+    get objects_path(format: :csv)
+
+    assert_response :success
+    assert_equal "text/csv", response.media_type
+    rows = response.body.lines
+    assert rows.first.include?("sobject_api_name"), "first row should be CSV headers"
+    assert rows.first.include?("field_api_name")
+    assert rows.first.include?("null_rate")
+    # @safe + @pii are the only sfields on @sobject → 2 data rows.
+    field_rows = rows[1..]
+    assert_equal 2, field_rows.size
+    assert field_rows.any? { |r| r.include?("Account") && r.include?("Name") }
+    assert field_rows.any? { |r| r.include?("Account") && r.include?("Email") }
+  end
+
+  test "show responds to .csv with only this object's fields" do
+    other = Sobject.create!(extraction_run: @run, api_name: "Other", raw_describe: {})
+    Sfield.create!(sobject: other, api_name: "OtherField", data_type: "string", sensitivity: "safe", raw_describe: {})
+
+    sign_in(@analyst)
+    get object_path(@sobject.api_name, run: @run.id, format: :csv)
+
+    assert_response :success
+    assert_equal "text/csv", response.media_type
+    rows = response.body.lines
+    field_rows = rows[1..]
+    # Only @safe + @pii belong to @sobject; "Other" sobject's field must NOT appear.
+    assert_equal 2, field_rows.size
+    refute field_rows.any? { |r| r.include?("OtherField") },
+           "CSV for /objects/Account.csv must not leak fields from other objects"
+  end
+
+  test "index CSV respects active filters (custom + sensitivity)" do
+    custom_with_pii = Sobject.create!(extraction_run: @run, api_name: "CustomPii__c", custom: true, raw_describe: {})
+    Sfield.create!(sobject: custom_with_pii, api_name: "Email__c", data_type: "email", sensitivity: "pii", raw_describe: {})
+    Sobject.create!(extraction_run: @run, api_name: "CustomSafe__c", custom: true, raw_describe: {}).tap do |s|
+      Sfield.create!(sobject: s, api_name: "Plain__c", data_type: "string", sensitivity: "safe", raw_describe: {})
+    end
+
+    sign_in(@analyst)
+    post select_run_path(@run)
+    get objects_path(custom: "1", sensitivity: "pii", format: :csv)
+
+    rows = response.body.lines
+    field_rows = rows[1..]
+    assert field_rows.any? { |r| r.include?("CustomPii__c") }
+    refute field_rows.any? { |r| r.include?("CustomSafe__c") }
+    refute field_rows.any? { |r| r.include?("Account") },
+           "Standard object Account must be excluded when custom=1"
+  end
+
   test "field action returns the extended-detail panel as a Turbo Frame" do
     sign_in(@analyst)
     get field_object_path(@sobject.api_name, field_name: @safe.api_name, run: @run.id)

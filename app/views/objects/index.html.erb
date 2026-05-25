@@ -6,6 +6,11 @@
       <p class="text-sm text-slate-600">Active run: <span class="font-mono"><%= @run.directory_token %></span></p>
     <% end %>
   </div>
+  <% if @run %>
+    <%= link_to "Download CSV", objects_path(request.query_parameters.merge(format: :csv)),
+          class: "rounded bg-slate-200 hover:bg-slate-300 text-slate-900 text-sm px-3 py-1.5",
+          title: "Download the filtered field list as CSV (one row per field, sensitive values redacted)" %>
+  <% end %>
 </div>
 
 <% if @run.nil? %>

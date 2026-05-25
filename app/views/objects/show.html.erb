@@ -10,9 +10,12 @@
     <h1 class="text-2xl font-semibold"><%= @sobject.api_name %></h1>
     <p class="text-sm text-slate-600"><%= @sobject.label %><% if @sobject.namespace_prefix.present? %> · namespace <code><%= @sobject.namespace_prefix %></code><% end %><% if @sobject.custom %> · custom<% end %></p>
   </div>
-  <div class="text-sm text-slate-600">
+  <div class="text-sm text-slate-600 flex items-center gap-2">
     <% if @object_profile&.record_count %><span class="rounded bg-slate-100 px-2 py-1">Records: <%= number_with_delimiter(@object_profile.record_count) %></span><% end %>
-    <% if @object_profile&.sampled %><span class="ml-1 rounded bg-indigo-100 text-indigo-900 px-2 py-1">Sampled</span><% end %>
+    <% if @object_profile&.sampled %><span class="rounded bg-indigo-100 text-indigo-900 px-2 py-1">Sampled</span><% end %>
+    <%= link_to "Download CSV", object_path(@sobject.api_name, run: @run.id, format: :csv),
+          class: "rounded bg-slate-200 hover:bg-slate-300 text-slate-900 text-xs px-2 py-1",
+          title: "Download this object's field list as CSV" %>
   </div>
 </div>
 

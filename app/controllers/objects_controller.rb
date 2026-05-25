@@ -1,4 +1,6 @@
 class ObjectsController < ApplicationController
+  include ObjectsHelper
+
   before_action :load_run
   after_action :verify_authorized, only: [ :show ]
   after_action :verify_policy_scoped, only: [ :index ]
@@ -39,12 +41,28 @@ class ObjectsController < ApplicationController
 
     @sobjects = scope.order(:api_name).to_a
     @sfield_counts = Sfield.where(sobject_id: @sobjects.map(&:id)).group(:sobject_id).count
+
+    respond_to do |format|
+      format.html
+      format.csv do
+        send_data fields_export_csv(@sobjects, @run),
+                  filename: "fields_#{@run.directory_token}.csv", type: "text/csv"
+      end
+    end
   end
 
   def show
     load_show_data!
     @outgoing = Srelationship.where(source_sobject_id: @sobject.id).includes(:target_sobject, :source_field).to_a
     @incoming = Srelationship.where(target_sobject_id: @sobject.id).includes(:source_sobject, :source_field).to_a
+
+    respond_to do |format|
+      format.html
+      format.csv do
+        send_data fields_export_csv([ @sobject ], @run),
+                  filename: "fields_#{@sobject.api_name}_#{@run.directory_token}.csv", type: "text/csv"
+      end
+    end
   end
 
   # Inline-expand panel rendered inside a Turbo Frame on /objects.
