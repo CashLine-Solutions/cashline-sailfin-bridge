@@ -431,7 +431,9 @@ CREATE TABLE public.sfields (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     sensitivity character varying DEFAULT 'unknown_sensitivity'::character varying NOT NULL,
-    sensitivity_signals jsonb DEFAULT '[]'::jsonb NOT NULL
+    sensitivity_signals jsonb DEFAULT '[]'::jsonb NOT NULL,
+    compliance_group character varying,
+    security_classification character varying
 );
 
 
@@ -524,6 +526,43 @@ CREATE SEQUENCE public.spicklist_values_id_seq
 --
 
 ALTER SEQUENCE public.spicklist_values_id_seq OWNED BY public.spicklist_values.id;
+
+
+--
+-- Name: srecord_types; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.srecord_types (
+    id bigint NOT NULL,
+    sobject_id bigint NOT NULL,
+    salesforce_id character varying NOT NULL,
+    developer_name character varying,
+    label character varying,
+    available boolean DEFAULT true NOT NULL,
+    default_mapping boolean DEFAULT false NOT NULL,
+    picklist_values jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: srecord_types_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.srecord_types_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: srecord_types_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.srecord_types_id_seq OWNED BY public.srecord_types.id;
 
 
 --
@@ -667,6 +706,13 @@ ALTER TABLE ONLY public.sobjects ALTER COLUMN id SET DEFAULT nextval('public.sob
 --
 
 ALTER TABLE ONLY public.spicklist_values ALTER COLUMN id SET DEFAULT nextval('public.spicklist_values_id_seq'::regclass);
+
+
+--
+-- Name: srecord_types id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.srecord_types ALTER COLUMN id SET DEFAULT nextval('public.srecord_types_id_seq'::regclass);
 
 
 --
@@ -817,6 +863,14 @@ ALTER TABLE ONLY public.sobjects
 
 ALTER TABLE ONLY public.spicklist_values
     ADD CONSTRAINT spicklist_values_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: srecord_types srecord_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.srecord_types
+    ADD CONSTRAINT srecord_types_pkey PRIMARY KEY (id);
 
 
 --
@@ -1249,6 +1303,20 @@ CREATE UNIQUE INDEX index_spicklist_values_on_sfield_id_and_value ON public.spic
 
 
 --
+-- Name: index_srecord_types_on_sobject_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_srecord_types_on_sobject_id ON public.srecord_types USING btree (sobject_id);
+
+
+--
+-- Name: index_srecord_types_on_sobject_id_and_salesforce_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_srecord_types_on_sobject_id_and_salesforce_id ON public.srecord_types USING btree (sobject_id, salesforce_id);
+
+
+--
 -- Name: index_srelationships_on_extraction_run_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1402,6 +1470,14 @@ ALTER TABLE ONLY public.extraction_runs
 
 
 --
+-- Name: srecord_types fk_rails_a2f48c6930; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.srecord_types
+    ADD CONSTRAINT fk_rails_a2f48c6930 FOREIGN KEY (sobject_id) REFERENCES public.sobjects(id);
+
+
+--
 -- Name: run_diffs fk_rails_a42840fa71; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1448,6 +1524,8 @@ ALTER TABLE ONLY public.clusters
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260527202400'),
+('20260527202300'),
 ('20260524021000'),
 ('20260524020000'),
 ('20260524014600'),

@@ -29,12 +29,14 @@ module Runs
           next unless describe_record
 
           payload = describe_record["payload"] || describe_record # legacy shape support
-          tooling_records = records.select { |r| %w[tooling_field_metadata tooling_validation_rule].include?(r["record_type"]) }
+          tooling_records = records.select { |r| %w[tooling_field_metadata tooling_validation_rule tooling_field_compliance].include?(r["record_type"]) }
+          rt_picklist_record = records.find { |r| r["record_type"] == "record_type_picklists" }
 
           sobject = upsert_sobject(api_name, payload)
           loaded_objects[api_name] = sobject
 
           load_fields(sobject, payload, tooling_records)
+          load_record_types(sobject, payload, rt_picklist_record)
         end
 
         load_relationships(loaded_objects)
@@ -61,6 +63,7 @@ module Runs
       ObjectProfile.where(id: object_profile_ids).delete_all
       ClusterAssignment.where(sobject_id: sobject_ids).delete_all
       SpicklistValue.where(sfield_id: sfield_ids).delete_all
+      SrecordType.where(sobject_id: sobject_ids).delete_all
       Srelationship.where(extraction_run_id: @run.id).delete_all
       Sfield.where(id: sfield_ids).delete_all
       Sobject.where(id: sobject_ids).delete_all
@@ -92,15 +95,24 @@ module Runs
     end
 
     def load_fields(sobject, payload, tooling_records)
+      formula_records = tooling_records.select { |t| t["record_type"] == "tooling_field_metadata" }
+      compliance_records = tooling_records.select { |t| t["record_type"] == "tooling_field_compliance" }
+
       Array(payload["fields"]).each do |field|
-        formula = nil
-        tooling_for_field = tooling_records.find { |t| t["field_developer_name"].to_s == field["name"].to_s.sub(/__c\z/, "") }
-        formula = tooling_for_field["formula"] if tooling_for_field
+        # Both formula and compliance records key off the full field API name,
+        # which matches the describe `name` (e.g. `sfsrm__Friday_Collection__c`).
+        tooling_for_field = formula_records.find { |t| t["field_api_name"].to_s == field["name"].to_s }
+        formula = tooling_for_field && tooling_for_field["formula"]
+
+        compliance = compliance_records.find { |t| t["field_api_name"].to_s == field["name"].to_s }
+        compliance_group = compliance && compliance["compliance_group"]
+        security_classification = compliance && compliance["security_classification"]
 
         sensitivity = Ontology::SensitivityClassifier.classify(
           field: field,
           sobject_describe: payload,
-          compliance_group: tooling_for_field && tooling_for_field["compliance_group"]
+          compliance_group: compliance_group,
+          security_classification: security_classification
         )
 
         sfield = Sfield.create!(
@@ -124,6 +136,8 @@ module Runs
           filterable: field.fetch("filterable", true),
           raw_describe: field,
           tooling_metadata: tooling_for_field,
+          compliance_group: compliance_group,
+          security_classification: security_classification,
           sensitivity: sensitivity[:sensitivity],
           sensitivity_signals: sensitivity[:signals]
         )
@@ -137,6 +151,36 @@ module Runs
             default_value: !!pv["defaultValue"]
           )
         end
+      end
+    end
+
+    # Persists real record types (subtypes) for an object. The Master pseudo
+    # record type is skipped -- it represents "no record type" and carries the
+    # object's full picklist vocabulary, which already lives in spicklist_values.
+    # Per-record-type picklist availability (from the describe/layouts endpoint,
+    # keyed by recordTypeId) is attached so consumers can see which values a
+    # given subtype actually exposes.
+    def load_record_types(sobject, payload, rt_picklist_record)
+      picklists_by_rt_id = {}
+      Array(rt_picklist_record && rt_picklist_record["mappings"]).each do |m|
+        picklists_by_rt_id[m["record_type_id"]] = m["picklists"] || {}
+      end
+
+      Array(payload["recordTypeInfos"]).each do |rti|
+        next if rti["master"]
+
+        rt_id = rti["recordTypeId"]
+        next if rt_id.blank?
+
+        SrecordType.create!(
+          sobject: sobject,
+          salesforce_id: rt_id,
+          developer_name: rti["developerName"],
+          label: rti["name"],
+          available: rti.fetch("available", true),
+          default_mapping: !!rti["defaultRecordTypeMapping"],
+          picklist_values: picklists_by_rt_id[rt_id] || {}
+        )
       end
     end
 

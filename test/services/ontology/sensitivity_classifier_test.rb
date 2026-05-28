@@ -2,8 +2,13 @@ require "test_helper"
 
 module Ontology
   class SensitivityClassifierTest < ActiveSupport::TestCase
-    def classify(field, sobject: nil, compliance_group: nil)
-      SensitivityClassifier.classify(field: field, sobject_describe: sobject, compliance_group: compliance_group)
+    def classify(field, sobject: nil, compliance_group: nil, security_classification: nil)
+      SensitivityClassifier.classify(
+        field: field,
+        sobject_describe: sobject,
+        compliance_group: compliance_group,
+        security_classification: security_classification
+      )
     end
 
     test "Email type → pii" do
@@ -68,10 +73,23 @@ module Ontology
       assert_includes result[:signals], "missing_describe"
     end
 
-    test "ComplianceGroup=Confidential + financial name pattern → financial" do
-      result = classify({ "name" => "Salary__c", "type" => "string" }, compliance_group: "Confidential")
-      # name matches /salary/ → financial via pattern AND compliance override.
+    test "SecurityClassification=Confidential escalates an otherwise-safe field to financial" do
+      result = classify({ "name" => "OpaqueNote__c", "type" => "string" }, security_classification: "Confidential")
       assert_equal "financial", result[:sensitivity]
+      assert_includes result[:signals], "security_classification:Confidential"
+    end
+
+    test "SecurityClassification=Internal is not sensitive → safe" do
+      result = classify({ "name" => "OpaqueNote__c", "type" => "string" }, security_classification: "Internal")
+      assert_equal "safe", result[:sensitivity]
+    end
+
+    test "ComplianceGroup=PII + SecurityClassification=Restricted → pii_and_financial" do
+      result = classify(
+        { "name" => "OpaqueField__c", "type" => "string" },
+        compliance_group: "PII", security_classification: "Restricted"
+      )
+      assert_equal "pii_and_financial", result[:sensitivity]
     end
 
     test "Phone type → pii" do

@@ -35,7 +35,11 @@ Sobject.find_each do |sobject|
     result = Ontology::SensitivityClassifier.classify(
       field: field,
       sobject_describe: sobject_describe,
-      compliance_group: nil
+      # Admin-declared FieldDefinition metadata persisted at load time -- pass
+      # it back through so re-classification doesn't drop the authoritative
+      # override and silently downgrade a flagged field to `safe`.
+      compliance_group: sf.compliance_group,
+      security_classification: sf.security_classification
     )
     new_sensitivity = result[:sensitivity]
     next if old == new_sensitivity && sf.sensitivity_signals == result[:signals]

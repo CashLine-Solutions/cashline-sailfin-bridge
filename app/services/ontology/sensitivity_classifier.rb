@@ -14,11 +14,17 @@ module Ontology
     PII_AND_FINANCIAL = "pii_and_financial".freeze
     UNKNOWN = "unknown_sensitivity".freeze
 
+    # Data-sensitivity levels (FieldDefinition.SecurityClassification) that
+    # denote sensitive data. `Public`/`Internal` are not sensitive.
+    SENSITIVE_CLASSIFICATIONS = /Confidential|Restricted|MissionCritical/i
+
     # Returns { sensitivity:, signals: [...] }.
     # `field` is the raw describe field hash; `sobject_describe` is the
-    # owning object's describe (used to detect person-name siblings);
-    # `compliance_group` is the optional Tooling-API FieldDefinition string.
-    def classify(field:, sobject_describe: nil, compliance_group: nil)
+    # owning object's describe (used to detect person-name siblings).
+    # `compliance_group` and `security_classification` are the optional
+    # Tooling-API FieldDefinition strings (ComplianceGroup / SecurityClassification) --
+    # admin-declared, so they take precedence over the heuristics above.
+    def classify(field:, sobject_describe: nil, compliance_group: nil, security_classification: nil)
       return { sensitivity: UNKNOWN, signals: [ "missing_describe" ] } if field.nil? || field.empty?
 
       signals = []
@@ -32,15 +38,19 @@ module Ontology
       financial ||= financial_by_type?(field, signals)
       financial ||= financial_by_name_pattern?(field, signals)
 
-      if compliance_group.is_a?(String)
-        if compliance_group.match?(/\b(PII|PCI|HIPAA)\b/i)
-          pii = true
-          signals << "compliance_group:#{compliance_group}"
-        end
-        if compliance_group.match?(/Confidential/i) && financial_pattern_match?(field["name"].to_s)
-          financial = true
-          signals << "compliance_group_confidential:financial_name"
-        end
+      if compliance_group.is_a?(String) && compliance_group.match?(/\b(PII|PCI|HIPAA)\b/i)
+        pii = true
+        signals << "compliance_group:#{compliance_group}"
+      end
+
+      # An admin-declared sensitive data-classification (Confidential /
+      # Restricted / MissionCritical) means "do not treat as public." There is
+      # no standalone confidential tier, so we escalate to `financial` -- the
+      # business-sensitive bucket -- which suppresses sampling in Unit 14.
+      # Public / Internal are not sensitive and are ignored.
+      if security_classification.is_a?(String) && security_classification.match?(SENSITIVE_CLASSIFICATIONS)
+        financial = true
+        signals << "security_classification:#{security_classification}"
       end
 
       sensitivity =
@@ -157,10 +167,6 @@ module Ontology
 
       signals << "name_pattern:financial:#{name}"
       true
-    end
-
-    def financial_pattern_match?(name)
-      name.match?(FINANCIAL_NAME_PATTERN)
     end
 
     def person_name_object?(sobject_describe)
