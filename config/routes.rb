@@ -40,14 +40,20 @@ Rails.application.routes.draw do
     end
   end
 
-  resource :graph, only: [ :show ], controller: "graph" do
-    get :data, on: :collection
-  end
+  get "visualizations" => "visualizations#index", as: :visualizations
+  get "visualizations/data" => "visualizations#data", as: :visualizations_data
+
+  # /graph was the standalone Cytoscape page; it now lives as the top section
+  # of /visualizations. The redirect keeps bookmarked URLs working, and the
+  # `graph_path` helper still resolves (used by older internal links).
+  get "graph" => redirect("/visualizations"), as: :graph
 
   namespace :reports do
     get :hub_orphan
     get :unused_fields
     get :mapping_order
+    get :picklists
+    get :record_types
   end
 
   resources :diffs, only: [ :new, :create, :show ]

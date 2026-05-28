@@ -1,34 +1,42 @@
 <% content_for(:title, "New diff") %>
-<nav class="text-sm text-slate-600 mb-3"><%= link_to "Runs", runs_path, class: "underline" %> / New diff</nav>
-<h1 class="text-2xl font-semibold mb-4">Compare two extraction runs</h1>
 
-<%= form_with url: diffs_path, method: :post, local: true, class: "rounded border border-slate-200 bg-white p-6 max-w-2xl space-y-5" do %>
+<%= render "shared/page_header",
+      eyebrow: "Compare",
+      title: "Compare two extraction runs",
+      subtitle: "Pick a baseline and a comparison run. The diff covers objects, fields (add/remove/type/length/picklist/formula), relationships, and installed packages.",
+      breadcrumb_html: link_to("Runs", runs_path).html_safe + " / New diff".html_safe %>
+
+<%= form_with url: diffs_path, method: :post, local: true, class: "card card-body max-w-xl space-y-6" do %>
   <% if flash.now[:alert].present? %>
-    <div class="rounded bg-rose-50 text-rose-900 px-3 py-2 text-sm"><%= flash.now[:alert] %></div>
+    <div class="flash-alert"><%= flash.now[:alert] %></div>
   <% end %>
 
   <% if @runs.empty? %>
-    <p class="text-slate-700 text-sm">No runs available. <%= link_to "Trigger one", new_run_path, class: "text-blue-700 underline" if policy(ExtractionRun).create? %>.</p>
+    <div class="empty-state">
+      <h2>No runs available</h2>
+      <p>Trigger an extraction to populate the diff picker.</p>
+      <% if policy(ExtractionRun).create? %>
+        <div class="mt-4"><%= link_to "Trigger one", new_run_path, class: "btn-primary" %></div>
+      <% end %>
+    </div>
   <% else %>
     <div>
-      <%= label_tag :run_a_id, "From run (baseline)", class: "block text-sm font-medium text-slate-700" %>
+      <%= label_tag :run_a_id, "From (baseline)", class: "label" %>
       <%= select_tag :run_a_id,
                      options_from_collection_for_select(@runs, :id, :directory_token, @run_a&.id),
-                     include_blank: true, class: "mt-1 block w-full rounded border-slate-300" %>
+                     include_blank: true, class: "input" %>
     </div>
 
     <div>
-      <%= label_tag :run_b_id, "To run (compared)", class: "block text-sm font-medium text-slate-700" %>
+      <%= label_tag :run_b_id, "To (compared)", class: "label" %>
       <%= select_tag :run_b_id,
                      options_from_collection_for_select(@runs, :id, :directory_token, @run_b&.id),
-                     include_blank: true, class: "mt-1 block w-full rounded border-slate-300" %>
+                     include_blank: true, class: "input" %>
     </div>
 
-    <p class="text-xs text-slate-500">Categories: object/field add/remove, type/length/picklist/formula changes, relationship add/remove, and installed-package changes.</p>
-
-    <div class="flex items-center gap-3">
-      <%= submit_tag "Compute diff", class: "rounded bg-slate-900 text-white px-4 py-2 text-sm" %>
-      <%= link_to "Cancel", runs_path, class: "text-sm text-slate-600 underline" %>
+    <div class="flex items-center gap-3 pt-2 border-t border-slate-100">
+      <%= submit_tag "Compute diff", class: "btn-primary" %>
+      <%= link_to "Cancel", runs_path, class: "btn-ghost" %>
     </div>
   <% end %>
 <% end %>

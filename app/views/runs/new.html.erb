@@ -1,111 +1,81 @@
 <% content_for(:title, "New run") %>
-<nav class="text-sm text-slate-600 mb-3"><%= link_to "Runs", runs_path, class: "underline" %> / New</nav>
-<h1 class="text-2xl font-semibold mb-2">Trigger a new extraction</h1>
 
-<div class="max-w-2xl mb-5 text-sm text-slate-700 space-y-2">
-  <p>
-    Starts a Salesforce describe walk from your seed objects, then loads the
-    schema into the local DB and profiles each visited object (record count,
-    null rate per field, distinct counts, top values).
-  </p>
-  <p>
-    Results appear under
-    <%= link_to "Objects", objects_path, class: "underline text-blue-700" %>,
-    <%= link_to "ERDs", erds_path, class: "underline text-blue-700" %>,
-    <%= link_to "Graph", graph_path, class: "underline text-blue-700" %>, and
-    <%= link_to "Reports", reports_hub_orphan_path, class: "underline text-blue-700" %>
-    once the run completes. The run detail page updates live — you can
-    navigate away and return.
-  </p>
-  <p class="text-xs text-slate-600">
-    <strong>Typical timing:</strong> 1–3 min for AR default (~20 objects),
-    10–30 min for Sailfin scope (100+ objects, ~30k Salesforce API calls).
-    Quota usage shows up in
-    <code class="bg-slate-100 px-1 rounded">bin/rails sailfin:limits</code>.
-  </p>
+<%= render "shared/page_header",
+      eyebrow: "Extraction",
+      title: "Trigger a new extraction",
+      subtitle: "Starts a Salesforce describe walk from your seed objects, loads the schema into the local DB, then profiles each visited object (record count, null rate per field, distinct counts, top values).",
+      breadcrumb_html: link_to("Runs", runs_path).html_safe + " / New".html_safe %>
+
+<div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 max-w-5xl">
+  <%= form_with model: @run, url: runs_path, local: true, class: "card card-body space-y-6" do |f| %>
+    <% if @run.errors.any? %>
+      <div class="flash-alert">
+        <strong class="font-semibold">Couldn't queue the run:</strong>
+        <%= @run.errors.full_messages.to_sentence %>
+      </div>
+    <% end %>
+
+    <div>
+      <%= f.label :preset, "Seed-object preset", class: "label" %>
+      <%= f.select :preset,
+                   options_for_select([
+                     ["AR default — Account, Contact, Opportunity (standard only)", "ar_default"],
+                     ["AR full — AR default + Task, Event, User, RecordType", "ar_full"],
+                     ["Sailfin scope — AR + cashline custom + sfsrm/sfcapp", "sailfin_scope"]
+                   ], "ar_default"),
+                   {}, class: "input" %>
+      <p class="help-text">Or supply a custom seed list below. The Sailfin scope preset also widens the walk's namespace allowlist to include managed-package objects (max_hops 4).</p>
+    </div>
+
+    <div>
+      <%= f.label :seed_objects, "Custom seed objects", class: "label" %>
+      <%= text_field_tag "extraction_run[seed_objects][]", "", class: "input", placeholder: "Invoice__c, Brand__c" %>
+      <p class="help-text">Comma-separated. Leave empty to use the preset. Case-sensitive — use exact Salesforce API names with <code class="code-inline">__c</code> for custom objects.</p>
+    </div>
+
+    <div>
+      <%= f.label :api_version, class: "label" %>
+      <%= f.text_field :api_version, class: "input" %>
+      <p class="help-text">Leave at the default unless you need a specific Salesforce API version. Bumping it across runs makes diffs noisy.</p>
+    </div>
+
+    <% if policy(ExtractionRun).trigger_with_pii? %>
+      <div class="rounded-md bg-amber-50 ring-1 ring-amber-200 p-4">
+        <label class="flex items-start gap-3">
+          <%= f.check_box :include_sensitive, class: "mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500" %>
+          <span>
+            <span class="block text-sm font-medium text-amber-900">Include sensitive (PII / financial) values</span>
+            <span class="block text-xs text-amber-800 mt-0.5 leading-relaxed">Run is flagged sensitive, stored under <code class="code-inline">storage/runs/sensitive/</code> with mode 0700, and auto-purged after 30 days. An audit event is written either way.</span>
+          </span>
+        </label>
+      </div>
+    <% end %>
+
+    <div class="flex items-center gap-3 pt-2 border-t border-slate-100">
+      <%= f.submit "Queue extraction", class: "btn-primary" %>
+      <%= link_to "Cancel", runs_path, class: "btn-ghost" %>
+    </div>
+  <% end %>
+
+  <aside class="space-y-4">
+    <div class="card card-body text-sm text-slate-700">
+      <h2 class="section-title text-base mb-2">What is a seed object?</h2>
+      <p class="leading-relaxed">It's where the extraction <em>starts</em>. The walker doesn't just describe the seed — it follows every lookup and master-detail reference outward to discover related objects, then walks <em>their</em> references, until the preset's hop limit.</p>
+      <p class="mt-3 leading-relaxed">Example: seed <code class="code-inline">Account</code> and the walker pulls in Contact, Opportunity, User, RecordType, and so on automatically — typically 15–30 standard objects from a single seed.</p>
+    </div>
+    <div class="card card-body text-sm text-slate-700">
+      <h2 class="section-title text-base mb-2">Typical timing</h2>
+      <dl class="space-y-2 text-sm">
+        <div class="flex justify-between gap-3">
+          <dt class="text-slate-500">AR default (~20 objects)</dt>
+          <dd class="font-medium text-slate-900 tabular-nums">1–3 min</dd>
+        </div>
+        <div class="flex justify-between gap-3">
+          <dt class="text-slate-500">Sailfin scope (~100 objects)</dt>
+          <dd class="font-medium text-slate-900 tabular-nums">10–30 min</dd>
+        </div>
+      </dl>
+      <p class="help-text mt-3">Quota usage is in <code class="code-inline">bin/rails sailfin:limits</code>.</p>
+    </div>
+  </aside>
 </div>
-
-<%= form_with model: @run, url: runs_path, local: true, class: "rounded border border-slate-200 bg-white p-6 max-w-2xl space-y-5" do |f| %>
-  <% if @run.errors.any? %>
-    <div class="rounded bg-rose-50 text-rose-900 px-3 py-2 text-sm">
-      <%= @run.errors.full_messages.to_sentence %>
-    </div>
-  <% end %>
-
-  <div>
-    <%= f.label :preset, "Seed-object preset", class: "block text-sm font-medium text-slate-700" %>
-    <%= f.select :preset,
-                 options_for_select([
-                   ["AR default (Account, Contact, Opportunity — standard only)", "ar_default"],
-                   ["AR full (Account, Contact, Opportunity, Task, Event, User, RecordType)", "ar_full"],
-                   ["Sailfin scope (AR + cashline custom objects + walk into sfsrm/sfcapp)", "sailfin_scope"]
-                 ], "ar_default"),
-                 {}, class: "mt-1 block w-full rounded border-slate-300" %>
-    <p class="mt-1 text-xs text-slate-500">Or supply a custom seed list below. The Sailfin scope preset also widens the walk's namespace allowlist to include managed-package objects (max_hops 4).</p>
-  </div>
-
-  <div>
-    <%= f.label :seed_objects, "Custom seed objects (comma-separated, leave empty to use preset)", class: "block text-sm font-medium text-slate-700" %>
-    <%= text_field_tag "extraction_run[seed_objects][]", "", class: "mt-1 block w-full rounded border-slate-300", placeholder: "Invoice__c, Brand__c" %>
-
-    <div class="mt-2 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 space-y-2">
-      <p>
-        <strong>What's a seed object?</strong> It's where the extraction
-        <em>starts</em>. The walker doesn't just describe the seed — it follows
-        every lookup and master-detail reference outward to discover related
-        objects, then walks from those, and keeps going outward until the
-        preset's hop limit.
-      </p>
-      <p>
-        Example: seed <code>Account</code>. The walker reads Account's describe,
-        sees that Account has reference fields to Contact, Opportunity, User,
-        RecordType, etc., and pulls each of those into the run automatically.
-        Then it walks <em>their</em> references the same way. You typically end
-        up with 15–30 standard objects from a single <code>Account</code> seed,
-        without listing any of them explicitly.
-      </p>
-      <p>
-        <strong>How to pick seeds:</strong> choose the objects that represent
-        the <em>core</em> of what you want to map; let the walker handle the
-        rest. For Sailfin work, that means the main AR objects (Account,
-        Invoice__c, etc.) plus any custom objects you specifically care about.
-        Use exact Salesforce API names — case-sensitive, with <code>__c</code>
-        for custom objects. Leave blank to use the preset's seed list.
-      </p>
-      <p class="text-slate-600">
-        The preset also controls the walk's <em>scope</em>: AR default stays in
-        the standard namespace; Sailfin scope extends the walk into
-        <code>sfsrm</code> and <code>sfcapp</code> managed packages, so
-        references from <code>Account</code> into Sailfin objects are followed
-        instead of skipped.
-      </p>
-    </div>
-  </div>
-
-  <div>
-    <%= f.label :api_version, class: "block text-sm font-medium text-slate-700" %>
-    <%= f.text_field :api_version, class: "mt-1 block w-full rounded border-slate-300" %>
-    <p class="mt-1 text-xs text-slate-500">
-      Leave at the default unless you need a specific Salesforce API version.
-      Bumping it across runs makes diffs noisy (every renamed/added field
-      surfaces); pin deliberately.
-    </p>
-  </div>
-
-  <% if policy(ExtractionRun).trigger_with_pii? %>
-    <div class="rounded border border-amber-300 bg-amber-50 p-4">
-      <label class="flex items-start gap-3">
-        <%= f.check_box :include_sensitive, class: "mt-1" %>
-        <span>
-          <span class="block text-sm font-medium text-amber-900">Include sensitive (PII / financial) values</span>
-          <span class="block text-xs text-amber-800">Run will be flagged sensitive, stored under <code>storage/runs/sensitive/</code> with mode 0700, and auto-purged after 30 days. An audit event is written either way.</span>
-        </span>
-      </label>
-    </div>
-  <% end %>
-
-  <div class="flex items-center gap-3">
-    <%= f.submit "Queue extraction", class: "rounded bg-slate-900 text-white px-4 py-2 text-sm" %>
-    <%= link_to "Cancel", runs_path, class: "text-sm text-slate-600 underline" %>
-  </div>
-<% end %>

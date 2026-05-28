@@ -90,6 +90,101 @@ class ReportsController < ApplicationController
     end
   end
 
+  # Inventory of every picklist / multipicklist field in the run, ordered by
+  # value count desc. Each row reports the object, field, value count, and a
+  # short preview of active values. Pull this when sizing the ontology's
+  # controlled-vocabulary translation work.
+  def picklists
+    if @run.nil?
+      skip_authorization
+      return render :picklists, formats: [ :html ]
+    end
+    authorize @run, :show?
+
+    rows = ActiveRecord::Base.connection.select_all(<<~SQL.squish, "picklists", [ @run.id ])
+      SELECT so.api_name AS object_name,
+             so.namespace_prefix AS namespace_prefix,
+             sf.id AS sfield_id,
+             sf.api_name AS field_name,
+             sf.data_type AS data_type,
+             COUNT(pv.id) FILTER (WHERE pv.active) AS active_value_count,
+             COUNT(pv.id) AS total_value_count
+      FROM sobjects so
+      JOIN sfields sf ON sf.sobject_id = so.id
+      LEFT JOIN spicklist_values pv ON pv.sfield_id = sf.id
+      WHERE so.extraction_run_id = $1
+        AND sf.data_type IN ('picklist', 'multipicklist')
+      GROUP BY so.api_name, so.namespace_prefix, sf.id, sf.api_name, sf.data_type
+      ORDER BY active_value_count DESC, so.api_name ASC, sf.api_name ASC
+    SQL
+
+    @rows = rows.to_a.map(&:symbolize_keys)
+
+    # Preload value previews in a single query to avoid N+1.
+    sfield_ids = @rows.map { |r| r[:sfield_id] }
+    previews = SpicklistValue.where(sfield_id: sfield_ids, active: true)
+                             .order(:value)
+                             .pluck(:sfield_id, :value)
+                             .group_by(&:first)
+                             .transform_values { |pairs| pairs.map(&:last) }
+    @previews = previews
+
+    @field_count = @rows.size
+    @value_total = @rows.sum { |r| r[:active_value_count].to_i }
+
+    respond_to do |format|
+      format.html
+      format.csv do
+        send_data csv_for(@rows, %i[object_name namespace_prefix field_name data_type active_value_count total_value_count]),
+                  filename: "picklists_#{@run.directory_token}.csv"
+      end
+    end
+  end
+
+  # Inventory of every real record type (subtype) in the run, with the
+  # per-record-type picklist availability captured from the describe/layouts
+  # endpoint. Master record types are not stored, so every row here is a
+  # genuine subtype — the unit of work when modeling polymorphic objects
+  # (e.g. which Transaction kinds exist) in the forward-looking ontology.
+  def record_types
+    if @run.nil?
+      skip_authorization
+      return render :record_types, formats: [ :html ]
+    end
+    authorize @run, :show?
+
+    records = SrecordType
+                .joins(:sobject)
+                .where(sobjects: { extraction_run_id: @run.id })
+                .order(Arel.sql("sobjects.api_name ASC, srecord_types.label ASC NULLS LAST"))
+                .select("srecord_types.*, sobjects.api_name AS object_api_name, sobjects.namespace_prefix AS object_namespace")
+
+    @rows = records.map do |rt|
+      picklists = rt.picklist_values.is_a?(Hash) ? rt.picklist_values : {}
+      {
+        object_name: rt.object_api_name,
+        namespace_prefix: rt.object_namespace,
+        label: rt.label,
+        developer_name: rt.developer_name,
+        default_mapping: rt.default_mapping,
+        available: rt.available,
+        scoped_field_count: picklists.keys.size,
+        scoped_picklists: picklists
+      }
+    end
+
+    @object_count = @rows.map { |r| r[:object_name] }.uniq.size
+    @record_type_count = @rows.size
+
+    respond_to do |format|
+      format.html
+      format.csv do
+        send_data csv_for(@rows, %i[object_name namespace_prefix label developer_name default_mapping available scoped_field_count]),
+                  filename: "record_types_#{@run.directory_token}.csv"
+      end
+    end
+  end
+
   def unused_fields
     if @run.nil?
       skip_authorization

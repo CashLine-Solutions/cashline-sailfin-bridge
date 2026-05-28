@@ -42,9 +42,18 @@ class ExtractDescribeJob < ApplicationJob
                                   reason: pf[:reason] || pf["reason"])
     end
 
+    rt_picklist_fetcher = Salesforce::RecordTypePicklistFetcher.new(client: client, api_version: run.api_version)
+
     result.describes.each do |api_name, payload|
       path = rd.object_jsonl_path(api_name)
       rd.append_jsonl!(path, { record_type: "describe", api_name: api_name, payload: payload })
+
+      # Record-type-scoped picklists need a second call, so only spend the API
+      # budget on objects that actually have non-Master record types.
+      if scoped_record_types?(payload)
+        record = rt_picklist_fetcher.fetch_for(api_name)
+        rd.append_jsonl!(path, record) if record
+      end
     rescue StandardError => e
       run.record_partial_failure!(object_api_name: api_name, reason: "describe write failed: #{e.message}")
     end
@@ -70,5 +79,12 @@ class ExtractDescribeJob < ApplicationJob
 
   def walk_option(run, key, default)
     run.walk_options.is_a?(Hash) ? run.walk_options.fetch(key, default) : default
+  end
+
+  # True when the object exposes at least one assignable, non-Master record
+  # type -- i.e. real subtypes whose picklist availability can differ from the
+  # global vocabulary. Master-only objects gain nothing from a layouts call.
+  def scoped_record_types?(payload)
+    Array(payload["recordTypeInfos"]).any? { |rti| !rti["master"] && rti.fetch("available", true) }
   end
 end

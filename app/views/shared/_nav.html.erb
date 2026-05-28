@@ -1,42 +1,49 @@
 <% if authenticated? %>
+  <%# Active-section detection — match by controller name so subroutes
+      (e.g. /runs/:id, /objects/:api_name, the mapping value/proposal
+      controllers) still highlight the section. %>
+  <% current_section = controller_name %>
+  <% nav_items = [
+       ["Runs",      :runs_path,               %w[runs]],
+       ["Objects",   :objects_path,            %w[objects]],
+       ["Mappings",  :mappings_path,           %w[mappings mapping_value_entries mapping_proposals]],
+       ["ERDs",      :erds_path,               %w[erds]],
+       ["Visualize", :visualizations_path,     %w[visualizations]],
+       ["Reports",   :reports_hub_orphan_path, %w[reports]],
+       ["Diff",      :new_diff_path,           %w[diffs]]
+     ] %>
+
   <aside class="sticky top-0 h-screen w-56 shrink-0 overflow-y-auto bg-white border-r border-slate-200 flex flex-col">
     <div class="px-4 py-4 border-b border-slate-200">
-      <%= link_to "Cashline", root_path, class: "font-semibold text-slate-900 text-lg" %>
+      <%= link_to root_path, class: "flex items-center gap-2", title: "CashLine ontology" do %>
+        <%= render "shared/logo", size_class: "h-8 w-auto" %>
+      <% end %>
     </div>
 
-    <% nav_items = [
-         ["Runs", :runs_path],
-         ["Objects", :objects_path],
-         ["Mappings", :mappings_path],
-         ["ERDs", :erds_path],
-         ["Graph", :graph_path],
-         ["Reports", :reports_hub_orphan_path],
-         ["Diff", :new_diff_path]
-       ] %>
     <nav class="flex-1 px-2 py-3 space-y-0.5">
-      <% nav_items.each do |label, path_helper| %>
+      <% nav_items.each do |label, path_helper, sections| %>
         <% next unless respond_to?(path_helper) %>
-        <% href = send(path_helper) %>
-        <%= link_to label, href,
-              class: "block rounded px-3 py-2 text-sm #{current_page?(href) ? 'bg-slate-900 text-white font-medium' : 'text-slate-700 hover:bg-slate-100'}" %>
+        <% active = sections.include?(current_section) %>
+        <%= link_to label, send(path_helper),
+              class: "block rounded px-3 py-2 text-sm font-medium #{active ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}" %>
       <% end %>
     </nav>
 
     <div class="border-t border-slate-200 px-4 py-3 text-xs space-y-2">
       <% if current_run %>
-        <div class="rounded bg-slate-100 px-2 py-2" title="Active run">
-          <div class="text-slate-500 mb-0.5">Active run</div>
-          <%= link_to current_run.directory_token, run_path(current_run), class: "font-mono underline decoration-dotted break-all" %>
-          <div class="text-slate-500 mt-1">
-            <%= time_ago_or_dash(current_run.completed_at || current_run.started_at) %> · <%= current_run.sobjects.count %> objects
+        <div class="rounded bg-slate-100 px-2 py-2" title="Active run — click to open">
+          <div class="flex items-center gap-1.5 text-slate-500 mb-1">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Active run
           </div>
+          <%= link_to current_run.directory_token, run_path(current_run), class: "font-mono text-slate-900 underline decoration-dotted break-all" %>
+          <div class="text-slate-500 mt-1"><%= current_run.sobjects.count %> objects</div>
           <% if current_run.include_sensitive %>
-            <span title="Sensitive run" class="mt-1 inline-block rounded bg-amber-100 text-amber-900 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">sensitive</span>
+            <span class="badge-warning mt-1 inline-block">sensitive</span>
           <% end %>
         </div>
       <% end %>
-      <div class="text-slate-600 break-all"><%= Current.user&.email_address %></div>
-      <%= button_to "Sign out", session_path, method: :delete, class: "text-slate-700 hover:text-slate-900 underline" %>
+      <div class="text-slate-500 break-all"><%= Current.user&.email_address %></div>
+      <%= button_to "Sign out", session_path, method: :delete, class: "btn-ghost btn-sm" %>
     </div>
   </aside>
 <% end %>

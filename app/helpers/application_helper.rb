@@ -1,11 +1,11 @@
 module ApplicationHelper
   STATUS_BADGE_CLASSES = {
-    "queued" => "bg-slate-100 text-slate-700",
-    "extracting" => "bg-blue-100 text-blue-800",
-    "profiling" => "bg-indigo-100 text-indigo-800",
-    "complete" => "bg-emerald-100 text-emerald-800",
-    "complete_with_warnings" => "bg-amber-100 text-amber-900",
-    "failed" => "bg-rose-100 text-rose-800"
+    "queued" => "badge-neutral",
+    "extracting" => "badge-info",
+    "profiling" => "badge-info",
+    "complete" => "badge-success",
+    "complete_with_warnings" => "badge-warning",
+    "failed" => "badge-danger"
   }.freeze
 
   SENSITIVITY_LABELS = {
@@ -17,8 +17,8 @@ module ApplicationHelper
   }.freeze
 
   def status_badge(status)
-    classes = STATUS_BADGE_CLASSES.fetch(status, "bg-slate-100 text-slate-700")
-    content_tag(:span, status.tr("_", " "), class: "inline-block rounded px-2 py-0.5 text-xs font-medium #{classes}")
+    classes = STATUS_BADGE_CLASSES.fetch(status, "badge-neutral")
+    content_tag(:span, status.tr("_", " "), class: classes)
   end
 
   def sensitivity_label(sensitivity)

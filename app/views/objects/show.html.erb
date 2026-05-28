@@ -1,66 +1,86 @@
 <% content_for(:title, @sobject.api_name) %>
 <% can_see_sensitive = can_view_sensitive_values?(@run, Current.user) %>
 <% hide_value_cols = (@run.include_sensitive && !Current.user&.sensitive_data_access?) %>
-<nav class="text-sm text-slate-600 mb-3">
-  <%= link_to "Runs", runs_path, class: "underline" %> / <%= link_to @run.directory_token, run_path(@run), class: "font-mono underline" %> / <%= link_to "Objects", objects_path(run: @run.id), class: "underline" %> / <span class="font-mono"><%= @sobject.api_name %></span>
-</nav>
 
-<div class="flex items-center justify-between mb-4">
-  <div>
-    <h1 class="text-2xl font-semibold"><%= @sobject.api_name %></h1>
-    <p class="text-sm text-slate-600"><%= @sobject.label %><% if @sobject.namespace_prefix.present? %> · namespace <code><%= @sobject.namespace_prefix %></code><% end %><% if @sobject.custom %> · custom<% end %></p>
-  </div>
-  <div class="text-sm text-slate-600 flex items-center gap-2">
-    <% if @object_profile&.record_count %><span class="rounded bg-slate-100 px-2 py-1">Records: <%= number_with_delimiter(@object_profile.record_count) %></span><% end %>
-    <% if @object_profile&.sampled %><span class="rounded bg-indigo-100 text-indigo-900 px-2 py-1">Sampled</span><% end %>
-    <%= link_to "Download CSV", object_path(@sobject.api_name, run: @run.id, format: :csv),
-          class: "rounded bg-slate-200 hover:bg-slate-300 text-slate-900 text-xs px-2 py-1",
-          title: "Download this object's field list as CSV" %>
-  </div>
-</div>
+<%= render "shared/page_header",
+      eyebrow: "Object",
+      title: @sobject.api_name,
+      subtitle: [@sobject.label, ("namespace #{@sobject.namespace_prefix}" if @sobject.namespace_prefix.present?), ("custom" if @sobject.custom)].compact.join(" · "),
+      breadcrumb_html: (
+        link_to("Runs", runs_path).html_safe +
+        " / ".html_safe +
+        link_to(@run.directory_token, run_path(@run), class: "font-mono").html_safe +
+        " / ".html_safe +
+        link_to("Objects", objects_path(run: @run.id)).html_safe +
+        " / ".html_safe +
+        content_tag(:span, @sobject.api_name, class: "font-mono text-slate-700")
+      ) do %>
+  <% if @object_profile&.record_count %>
+    <span class="badge-neutral">Records: <%= number_with_delimiter(@object_profile.record_count) %></span>
+  <% end %>
+  <% if @object_profile&.sampled %>
+    <span class="badge-info">Sampled</span>
+  <% end %>
+  <%= link_to "Download CSV", object_path(@sobject.api_name, run: @run.id, format: :csv),
+        class: "btn-secondary btn-sm",
+        title: "Download this object's field list as CSV" %>
+<% end %>
 
-<section class="rounded border border-slate-200 bg-white p-4 mb-6">
-  <h2 class="text-lg font-semibold mb-3">Fields (<%= @sfields.size %>)</h2>
-  <%= render "fields_panel",
-        sobject: @sobject,
-        sfields: @sfields,
-        field_profiles: @field_profiles,
-        run: @run,
-        object_profile: @object_profile,
-        hide_value_cols: hide_value_cols,
-        can_see_sensitive: can_see_sensitive %>
+<section class="card mb-6">
+  <div class="card-header">
+    <h2 class="section-title">Fields</h2>
+    <p class="section-subtitle"><%= @sfields.size %> total</p>
+  </div>
+  <div class="card-body">
+    <%= render "fields_panel",
+          sobject: @sobject,
+          sfields: @sfields,
+          field_profiles: @field_profiles,
+          run: @run,
+          object_profile: @object_profile,
+          hide_value_cols: hide_value_cols,
+          can_see_sensitive: can_see_sensitive %>
+  </div>
 </section>
 
-<section class="rounded border border-slate-200 bg-white p-4 mb-6">
-  <h2 class="text-lg font-semibold mb-3">Relationships</h2>
-  <div class="grid grid-cols-2 gap-4 text-sm">
+<section class="card mb-6">
+  <div class="card-header">
+    <h2 class="section-title">Relationships</h2>
+    <p class="section-subtitle"><%= @outgoing.size %> outbound · <%= @incoming.size %> inbound</p>
+  </div>
+  <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
     <div>
-      <h3 class="font-medium mb-1">Outbound (<%= @outgoing.size %>)</h3>
-      <% if @outgoing.empty? %><p class="text-slate-500">None.</p><% else %>
-        <ul class="space-y-1">
+      <p class="eyebrow mb-2">Outbound</p>
+      <% if @outgoing.empty? %>
+        <p class="text-slate-500 text-sm">None.</p>
+      <% else %>
+        <ul class="space-y-1.5">
           <% @outgoing.each do |r| %>
-            <li>
-              <span class="font-mono text-xs"><%= r.relationship_name || r.source_field&.api_name %></span> →
+            <li class="flex items-center gap-1.5 flex-wrap">
+              <span class="font-mono text-xs text-slate-700"><%= r.relationship_name || r.source_field&.api_name %></span>
+              <span class="text-slate-300">→</span>
               <% if r.target_sobject %>
-                <%= link_to r.target_sobject.api_name, object_path(r.target_sobject.api_name, run: @run.id), class: "text-blue-700 underline font-mono text-xs" %>
+                <%= link_to r.target_sobject.api_name, object_path(r.target_sobject.api_name, run: @run.id), class: "font-mono text-xs font-medium text-blue-600 hover:text-blue-700" %>
               <% else %>
-                <span class="font-mono text-xs text-slate-700"><%= Array(r.reference_to_api_names).join(", ") %></span>
+                <span class="font-mono text-xs text-slate-500"><%= Array(r.reference_to_api_names).join(", ") %></span>
               <% end %>
-              <% if r.polymorphic %><span class="ml-1 rounded bg-slate-100 text-slate-700 text-[10px] px-1">poly</span><% end %>
+              <% if r.polymorphic %><span class="badge-neutral text-[10px]">poly</span><% end %>
             </li>
           <% end %>
         </ul>
       <% end %>
     </div>
     <div>
-      <h3 class="font-medium mb-1">Inbound (<%= @incoming.size %>)</h3>
-      <% if @incoming.empty? %><p class="text-slate-500">None.</p><% else %>
-        <ul class="space-y-1">
+      <p class="eyebrow mb-2">Inbound</p>
+      <% if @incoming.empty? %>
+        <p class="text-slate-500 text-sm">None.</p>
+      <% else %>
+        <ul class="space-y-1.5">
           <% @incoming.each do |r| %>
-            <li>
-              <%= link_to r.source_sobject.api_name, object_path(r.source_sobject.api_name, run: @run.id), class: "text-blue-700 underline font-mono text-xs" %>
-              <span class="text-slate-500">via</span>
-              <span class="font-mono text-xs"><%= r.relationship_name || r.source_field&.api_name %></span>
+            <li class="flex items-center gap-1.5 flex-wrap">
+              <%= link_to r.source_sobject.api_name, object_path(r.source_sobject.api_name, run: @run.id), class: "font-mono text-xs font-medium text-blue-600 hover:text-blue-700" %>
+              <span class="text-slate-400 text-xs">via</span>
+              <span class="font-mono text-xs text-slate-700"><%= r.relationship_name || r.source_field&.api_name %></span>
             </li>
           <% end %>
         </ul>
@@ -71,15 +91,20 @@
 
 <% formula_fields = @sfields.select { |f| f.calculated && f.calculated_formula.present? } %>
 <% if formula_fields.any? %>
-  <section class="rounded border border-slate-200 bg-white p-4">
-    <h2 class="text-lg font-semibold mb-3">Formulas / validations</h2>
-    <ul class="space-y-3 text-sm">
-      <% formula_fields.each do |f| %>
-        <li>
-          <p class="font-mono text-xs text-slate-700"><%= f.api_name %></p>
-          <pre class="mt-1 rounded bg-slate-50 p-2 text-xs overflow-x-auto"><%= f.calculated_formula %></pre>
-        </li>
-      <% end %>
-    </ul>
+  <section class="card">
+    <div class="card-header">
+      <h2 class="section-title">Formulas / validations</h2>
+      <p class="section-subtitle"><%= formula_fields.size %> calculated <%= "field".pluralize(formula_fields.size) %></p>
+    </div>
+    <div class="card-body">
+      <ul class="space-y-4 text-sm">
+        <% formula_fields.each do |f| %>
+          <li>
+            <p class="font-mono text-xs text-slate-700 font-medium"><%= f.api_name %></p>
+            <pre class="mt-1.5 rounded-md bg-slate-50 ring-1 ring-slate-100 p-3 text-xs overflow-x-auto text-slate-800"><%= f.calculated_formula %></pre>
+          </li>
+        <% end %>
+      </ul>
+    </div>
   </section>
 <% end %>

@@ -1,0 +1,26 @@
+<%# Shared page-header partial.
+    Locals:
+      title:     (required) the main page title
+      subtitle:  (optional) one-line context under the title
+      eyebrow:   (optional) small uppercase label above the title
+      breadcrumb_html: (optional) a html_safe breadcrumb fragment
+    Block: optional — yields a slot on the right for action buttons.
+%>
+<% subtitle ||= nil %>
+<% eyebrow ||= nil %>
+<% breadcrumb_html ||= nil %>
+<div class="mb-8">
+  <% if breadcrumb_html %>
+    <nav class="breadcrumb mb-2"><%= breadcrumb_html %></nav>
+  <% end %>
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0">
+      <% if eyebrow %><p class="eyebrow mb-1.5"><%= eyebrow %></p><% end %>
+      <h1 class="page-title"><%= title %></h1>
+      <% if subtitle %><p class="page-subtitle max-w-2xl"><%= subtitle %></p><% end %>
+    </div>
+    <% if block_given? %>
+      <div class="flex flex-wrap items-center gap-2"><%= yield %></div>
+    <% end %>
+  </div>
+</div>

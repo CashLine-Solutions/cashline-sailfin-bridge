@@ -1,0 +1,120 @@
+<% content_for(:title, "Visualizations") %>
+
+<%= render "shared/page_header",
+      eyebrow: "Schema",
+      title: "Visualizations",
+      subtitle: "Schema graph, volume × centrality, and field-fill density across the active run's #{@run&.sobjects&.count || 0} objects." %>
+
+<% if @run.nil? %>
+  <div class="empty-state">
+    <h2>No active run selected</h2>
+    <p>Pick a run to render the visualizations.</p>
+    <div class="mt-4"><%= link_to "Pick a run", runs_path, class: "btn-primary" %></div>
+  </div>
+<% else %>
+  <%# All three sections consume the same JSON endpoint. The graph uses
+      `nodes` + `clusters` + `edges`; the bubble chart uses `nodes` +
+      `clusters`; the heatmap uses `heatmap` + `clusters`. Loading once
+      keeps the round-trip small. %>
+
+  <section class="card mb-6"
+           data-controller="graph"
+           data-graph-endpoint-value="<%= visualizations_data_path %>"
+           data-graph-object-path-value="<%= object_path('__API_NAME__', run: @run.id) %>">
+    <div class="card-header">
+      <h2 class="section-title">Schema graph</h2>
+      <p class="section-subtitle max-w-3xl">
+        Force-directed view of all in-scope objects and relationships. Nodes are coloured by cluster and sized by field count. Scroll to zoom; drag to pan; click a node to open that object. The "Hide platform noise" toggle drops the platform scaffolding objects (User, Group, Profile, content/email/approvals) and the system-owner edges (<code class="code-inline">CreatedById</code>, <code class="code-inline">OwnerId</code>, etc.) that every object carries — about half of all edges in a Salesforce schema.
+      </p>
+    </div>
+    <div class="card-body">
+      <div class="flex items-center gap-3 mb-4 text-sm flex-wrap">
+        <label class="inline-flex items-center gap-2">
+          <input type="checkbox" data-graph-target="hidePlatform" data-action="change->graph#togglePlatform" checked class="rounded border-slate-300 text-slate-900 focus:ring-blue-500/30">
+          <span title="Hide User, Group, Profile, Network, content/email/approvals plumbing — and the CreatedById/OwnerId/LastModifiedById/RecordTypeId edges those produce on every object" class="text-slate-700">Hide platform noise</span>
+        </label>
+        <span class="h-5 w-px bg-slate-200"></span>
+        <label class="inline-flex items-center gap-1.5 text-slate-700">
+          <span class="text-xs text-slate-500">Namespace</span>
+          <%= select_tag :namespace, options_for_select([["All", ""]]),
+                "data-graph-target": "namespaceFilter",
+                class: "input input-sm py-1" %>
+        </label>
+        <label class="inline-flex items-center gap-1.5 text-slate-700">
+          <span class="text-xs text-slate-500">Min records</span>
+          <input type="number" min="0" value="0" data-graph-target="minRecords" class="input input-sm w-24 py-1">
+        </label>
+        <button data-action="graph#applyFilters" class="btn-secondary btn-sm">Apply</button>
+        <span class="h-5 w-px bg-slate-200"></span>
+        <div class="inline-flex items-center rounded-md ring-1 ring-slate-200 bg-white overflow-hidden">
+          <button data-action="graph#zoomIn"  class="px-2 py-1 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900" title="Zoom in">＋</button>
+          <span class="h-5 w-px bg-slate-200"></span>
+          <button data-action="graph#zoomOut" class="px-2 py-1 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900" title="Zoom out">－</button>
+          <span class="h-5 w-px bg-slate-200"></span>
+          <button data-action="graph#fit"     class="px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900" title="Fit to canvas">Fit</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-4">
+        <div data-graph-target="canvas" class="bg-slate-50/60 rounded-md ring-1 ring-slate-100" style="width: 100%; height: 78vh; min-height: 560px;"></div>
+        <aside class="text-xs">
+          <p class="eyebrow mb-2">Clusters</p>
+          <ul data-graph-target="legend" class="space-y-1.5"></ul>
+          <p class="help-text mt-4">Auto-computed by graph modularity. Edit on <%= link_to "/clusters/edit", edit_clusters_path, class: "text-blue-600 hover:text-blue-700 font-medium" %>.</p>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <section class="card mb-6"
+           data-controller="bubble-chart"
+           data-bubble-chart-endpoint-value="<%= visualizations_data_path %>"
+           data-bubble-chart-object-path-value="<%= object_path('__API_NAME__', run: @run.id) %>">
+    <div class="card-header">
+      <h2 class="section-title">Volume × centrality</h2>
+      <p class="section-subtitle max-w-3xl">
+        Each bubble is an object. Horizontal axis is record volume (log scale); vertical axis is how many other objects point at it.
+        Bubble size = field count. Colour = cluster.
+        Click any bubble to open that object.
+      </p>
+    </div>
+    <div class="card-body">
+      <div class="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-4">
+        <div data-bubble-chart-target="canvas" class="w-full h-[560px] rounded-md ring-1 ring-slate-100 bg-slate-50/60 relative">
+          <div data-bubble-chart-target="tooltip"
+               class="hidden absolute pointer-events-none bg-slate-900 text-white text-xs rounded-md px-2.5 py-1.5 shadow-lg z-10"></div>
+        </div>
+        <aside class="text-xs space-y-4">
+          <div>
+            <p class="eyebrow mb-2">Clusters</p>
+            <ul data-bubble-chart-target="legend" class="space-y-1.5"></ul>
+          </div>
+          <div>
+            <p class="eyebrow mb-2">Reading the chart</p>
+            <ul class="space-y-1 text-slate-600">
+              <li><span class="text-slate-500">Top-left:</span> critical-but-small (e.g. <code class="code-inline">Brand__c</code>)</li>
+              <li><span class="text-slate-500">Top-right:</span> workhorses (e.g. <code class="code-inline">Account</code>)</li>
+              <li><span class="text-slate-500">Bottom-right:</span> high-volume leaf data</li>
+              <li><span class="text-slate-500">Bottom-left:</span> cuttable noise</li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <section class="card"
+           data-controller="heatmap"
+           data-heatmap-endpoint-value="<%= visualizations_data_path %>"
+           data-heatmap-object-path-value="<%= object_path('__API_NAME__', run: @run.id) %>">
+    <div class="card-header">
+      <h2 class="section-title">Field-fill density</h2>
+      <p class="section-subtitle max-w-3xl">
+        One row per object. Each cell is one of the object's top-filled fields, shaded by how often the field is populated (darker = more often filled).
+        Objects with dense cells on the left are carrying real data; objects with a short tail are mostly empty surface.
+      </p>
+    </div>
+    <div class="card-body">
+      <div data-heatmap-target="canvas" class="overflow-auto max-h-[640px] rounded-md ring-1 ring-slate-100 bg-white"></div>
+    </div>
+  </section>
+<% end %>

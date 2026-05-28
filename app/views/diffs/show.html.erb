@@ -1,81 +1,84 @@
 <% content_for(:title, "Diff #{@diff.id}") %>
-<nav class="text-sm text-slate-600 mb-3"><%= link_to "New diff", new_diff_path, class: "underline" %> / show</nav>
 
-<div class="flex items-center justify-between mb-6">
-  <div>
-    <h1 class="text-2xl font-semibold">Schema diff</h1>
-    <p class="text-sm text-slate-700 mt-1">
-      <span class="font-mono"><%= link_to @diff.run_a.directory_token, run_path(@diff.run_a), class: "text-blue-700 underline" %></span>
-      <span class="text-slate-500">→</span>
-      <span class="font-mono"><%= link_to @diff.run_b.directory_token, run_path(@diff.run_b), class: "text-blue-700 underline" %></span>
-      <span class="text-slate-500 ml-2">·</span>
-      <span class="text-slate-500"><%= @diff.total_changes %> change<%= "s" unless @diff.total_changes == 1 %></span>
-    </p>
-    <% if @diff.diff["api_version_a"] && @diff.diff["api_version_a"] != @diff.diff["api_version_b"] %>
-      <p class="mt-2 text-xs text-amber-900 bg-amber-50 border border-amber-200 px-2 py-1 inline-block rounded">
-        Cross-API-version: <%= @diff.diff["api_version_a"] %> → <%= @diff.diff["api_version_b"] %>
-      </p>
-    <% end %>
-  </div>
-  <%= link_to "Download Markdown", diff_path(@diff, format: :md), class: "rounded bg-slate-200 px-3 py-2 text-sm" %>
+<%= render "shared/page_header",
+      eyebrow: "Compare",
+      title: "Schema diff",
+      breadcrumb_html: link_to("New diff", new_diff_path).html_safe + " / show".html_safe do %>
+  <%= link_to "Download Markdown", diff_path(@diff, format: :md), class: "btn-secondary btn-sm" %>
+<% end %>
+
+<div class="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+  <%= link_to @diff.run_a.directory_token, run_path(@diff.run_a), class: "font-mono text-sm font-medium text-blue-600 hover:text-blue-700" %>
+  <span class="text-slate-300">→</span>
+  <%= link_to @diff.run_b.directory_token, run_path(@diff.run_b), class: "font-mono text-sm font-medium text-blue-600 hover:text-blue-700" %>
+  <span class="badge-neutral"><%= @diff.total_changes %> <%= "change".pluralize(@diff.total_changes) %></span>
+  <% if @diff.diff["api_version_a"] && @diff.diff["api_version_a"] != @diff.diff["api_version_b"] %>
+    <span class="badge-warning">API <%= @diff.diff["api_version_a"] %> → <%= @diff.diff["api_version_b"] %></span>
+  <% end %>
 </div>
 
 <% if @diff.empty? %>
-  <div class="rounded border border-slate-200 bg-white p-6 text-slate-700">No differences between these runs.</div>
+  <div class="empty-state">
+    <h2>No differences</h2>
+    <p>These runs are structurally identical.</p>
+  </div>
 <% else %>
   <%# All formatters compose via safe_join + content_tag so Salesforce-derived
       strings (picklist values especially) cannot inject HTML. content_tag
       escapes its content arg; safe_join escapes its array elements. No
       raw .html_safe on user-derived strings. %>
   <% sections = [
-       ["Objects added",        :object_added,        ->(o) { content_tag(:code, o.to_s) }],
-       ["Objects removed",      :object_removed,      ->(o) { content_tag(:code, o.to_s) }],
-       ["Fields added",         :field_added,         ->(f) {
-         safe_join([content_tag(:code, "#{f["object"]}.#{f["field"]}"), " ",
+       ["Objects added",        :object_added,        "badge-success", ->(o) { content_tag(:code, o.to_s, class: "code-inline") }],
+       ["Objects removed",      :object_removed,      "badge-danger",  ->(o) { content_tag(:code, o.to_s, class: "code-inline") }],
+       ["Fields added",         :field_added,         "badge-success", ->(f) {
+         safe_join([content_tag(:code, "#{f["object"]}.#{f["field"]}", class: "code-inline"), " ",
                     content_tag(:span, "(#{f["data_type"]})", class: "text-slate-500 text-xs")])
        }],
-       ["Fields removed",       :field_removed,       ->(f) {
-         safe_join([content_tag(:code, "#{f["object"]}.#{f["field"]}"), " ",
+       ["Fields removed",       :field_removed,       "badge-danger",  ->(f) {
+         safe_join([content_tag(:code, "#{f["object"]}.#{f["field"]}", class: "code-inline"), " ",
                     content_tag(:span, "(#{f["data_type"]})", class: "text-slate-500 text-xs")])
        }],
-       ["Field type changed",   :field_type_changed,  ->(f) {
-         safe_join([content_tag(:code, "#{f["object"]}.#{f["field"]}"), ": ",
-                    content_tag(:code, f["from"].to_s), " → ",
-                    content_tag(:code, f["to"].to_s)])
+       ["Field type changed",   :field_type_changed,  "badge-warning", ->(f) {
+         safe_join([content_tag(:code, "#{f["object"]}.#{f["field"]}", class: "code-inline"), ": ",
+                    content_tag(:code, f["from"].to_s, class: "code-inline"), " → ",
+                    content_tag(:code, f["to"].to_s, class: "code-inline")])
        }],
-       ["Field length changed", :field_length_changed,->(f) {
-         safe_join([content_tag(:code, "#{f["object"]}.#{f["field"]}"), ": ",
+       ["Field length changed", :field_length_changed,"badge-warning", ->(f) {
+         safe_join([content_tag(:code, "#{f["object"]}.#{f["field"]}", class: "code-inline"), ": ",
                     f["from"].to_s, " → ", f["to"].to_s])
        }],
-       ["Picklist values added",   :picklist_values_added,   ->(p) {
-         safe_join([content_tag(:code, "#{p["object"]}.#{p["field"]}"), ": ",
+       ["Picklist values added",   :picklist_values_added,   "badge-success", ->(p) {
+         safe_join([content_tag(:code, "#{p["object"]}.#{p["field"]}", class: "code-inline"), ": ",
                     safe_join(Array(p["values"]).map(&:to_s), ", ")])
        }],
-       ["Picklist values removed", :picklist_values_removed, ->(p) {
-         safe_join([content_tag(:code, "#{p["object"]}.#{p["field"]}"), ": ",
+       ["Picklist values removed", :picklist_values_removed, "badge-danger",  ->(p) {
+         safe_join([content_tag(:code, "#{p["object"]}.#{p["field"]}", class: "code-inline"), ": ",
                     safe_join(Array(p["values"]).map(&:to_s), ", ")])
        }],
-       ["Relationships added",   :relationship_added,   ->(r) {
-         content_tag(:code, "#{r["source"]} → #{r["target"] || "(polymorphic)"}")
+       ["Relationships added",   :relationship_added,   "badge-success", ->(r) {
+         content_tag(:code, "#{r["source"]} → #{r["target"] || "(polymorphic)"}", class: "code-inline")
        }],
-       ["Relationships removed", :relationship_removed, ->(r) {
-         content_tag(:code, "#{r["source"]} → #{r["target"] || "(polymorphic)"}")
+       ["Relationships removed", :relationship_removed, "badge-danger",  ->(r) {
+         content_tag(:code, "#{r["source"]} → #{r["target"] || "(polymorphic)"}", class: "code-inline")
        }],
-       ["Formula logic changed", :formula_logic_changed,->(f) { content_tag(:code, "#{f["object"]}.#{f["field"]}") }],
+       ["Formula logic changed", :formula_logic_changed,"badge-warning", ->(f) { content_tag(:code, "#{f["object"]}.#{f["field"]}", class: "code-inline") }],
      ] %>
 
   <div class="space-y-3">
-    <% sections.each do |label, key, formatter| %>
+    <% sections.each do |label, key, badge_class, formatter| %>
       <% items = @diff.category(key) %>
       <% next if items.empty? %>
-      <details class="rounded border border-slate-200 bg-white" open>
-        <summary class="cursor-pointer px-4 py-2 flex items-center justify-between text-sm font-medium text-slate-800">
-          <span><%= label %></span>
-          <span class="text-xs text-slate-500"><%= items.size %></span>
+      <details class="card" open>
+        <summary class="cursor-pointer px-5 py-3 flex items-center justify-between text-sm font-semibold text-slate-900 hover:bg-slate-50 transition-colors">
+          <span class="flex items-center gap-2">
+            <span class="<%= badge_class %>"><%= items.size %></span>
+            <%= label %>
+          </span>
+          <span class="text-xs text-slate-400">expand / collapse</span>
         </summary>
         <ul class="border-t border-slate-100 divide-y divide-slate-100 text-sm">
           <% items.each do |item| %>
-            <li class="px-4 py-2 font-mono text-xs text-slate-700"><%= formatter.call(item) %></li>
+            <li class="px-5 py-2.5 text-slate-700"><%= formatter.call(item) %></li>
           <% end %>
         </ul>
       </details>
@@ -83,13 +86,13 @@
 
     <% pkgs = @diff.installed_package_changes %>
     <% if Array(pkgs["added"]).any? || Array(pkgs["removed"]).any? || Array(pkgs["version_changed"]).any? %>
-      <details class="rounded border border-slate-200 bg-white" open>
-        <summary class="cursor-pointer px-4 py-2 text-sm font-medium text-slate-800">Installed packages</summary>
+      <details class="card" open>
+        <summary class="cursor-pointer px-5 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-50 transition-colors">Installed packages</summary>
         <ul class="border-t border-slate-100 divide-y divide-slate-100 text-sm">
-          <% Array(pkgs["added"]).each do |p| %><li class="px-4 py-2 font-mono text-xs"><span class="text-emerald-700">+</span> <%= p %></li><% end %>
-          <% Array(pkgs["removed"]).each do |p| %><li class="px-4 py-2 font-mono text-xs"><span class="text-rose-700">−</span> <%= p %></li><% end %>
+          <% Array(pkgs["added"]).each do |p| %><li class="px-5 py-2.5"><span class="text-emerald-700 font-mono mr-2">+</span> <code class="code-inline"><%= p %></code></li><% end %>
+          <% Array(pkgs["removed"]).each do |p| %><li class="px-5 py-2.5"><span class="text-rose-700 font-mono mr-2">−</span> <code class="code-inline"><%= p %></code></li><% end %>
           <% Array(pkgs["version_changed"]).each do |p| %>
-            <li class="px-4 py-2 font-mono text-xs"><code><%= p["namespace"] %></code>: <%= p["from"] %> → <%= p["to"] %></li>
+            <li class="px-5 py-2.5"><code class="code-inline"><%= p["namespace"] %></code>: <%= p["from"] %> → <%= p["to"] %></li>
           <% end %>
         </ul>
       </details>

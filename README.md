@@ -14,7 +14,7 @@ See `docs/brainstorms/2026-05-23-sailfin-extraction-and-ontology-requirements.md
 | **B** Salesforce client | JWT Bearer auth via Restforce 8, token cache, API limits guard |
 | **C** Extraction | `ExtractionRun` model, REST `describe` walker, Tooling API, JSONL run storage, relational loader |
 | **D** Profiling | Sensitivity classifier (PII / financial), `ProfileObjectJob`, Bulk 2.0 sampling, redaction policy |
-| **E** UI views | Runs / objects / ERDs (Mermaid) / force-directed graph (Cytoscape) / hub-orphan + unused-fields / mapping-order reports |
+| **E** UI views | Runs / objects / ERDs (Mermaid) / `/visualizations` (force-directed graph + volume × centrality bubble chart + field-fill heatmap, all coloured by cluster, all sharing one JSON endpoint) / hub-orphan + unused-fields / mapping-order reports |
 | **F** Diff | `DiffCalculator` + `ComputeDiffJob`, categorized diff UI, Markdown export |
 | **Polish** | Sortable + type-filtered fields tables, click-to-expand field detail with prev/next walkthrough, filtered CSV exports pre-seeded with mapping columns, Sailfin scope preset, live profiling progress |
 
@@ -38,7 +38,7 @@ Embeddings are an *additive* signal — the heuristic matcher works without them
    ```
 3. With the key present, the "Compute suggestions" button chains `ComputeEmbeddingsJob` after the heuristic pass. Sensitive (`pii`/`financial`/`unknown_sensitivity`) fields are embedded **metadata-only** (api_name + type, never label/help/values); embeddings degrade to heuristic-only if the key is absent or OpenAI is unreachable.
 
-332 tests, 1008 assertions, 0 failures.
+368 tests, 1095 assertions, 0 failures.
 
 ## Quickstart (development)
 
@@ -111,6 +111,7 @@ Schema dumps use SQL format (`db/structure.sql`, `db/audit_structure.sql`) so cu
 
 ## Method
 
+- `docs/method/sailfin-cluster-map.md` — Plain-language guide to the 123 Sailfin objects, organised into 8 clusters with keep/cut judgments. Shareable artifact for talking through the ontology with stakeholders.
 - `docs/method/manual-mapping-stopgap.md` — How to use Phases A–F + polish to author the first cashline ontology draft in a spreadsheet + text editor, ahead of the Phase 3 workbench
 
 ## Tests

@@ -20,48 +20,46 @@
                         .group_by(&:data_type)
                         .transform_values(&:size)
                         .sort_by { |_t, c| -c } %>
-<% chip_active = "rounded bg-slate-900 text-white px-2 py-1 text-[11px] font-medium" %>
-<% chip_inactive = "rounded border border-slate-300 bg-white text-slate-700 hover:border-slate-500 px-2 py-1 text-[11px]" %>
 
 <div data-controller="type-filter"
-     data-type-filter-active-class-value="<%= chip_active %>"
-     data-type-filter-inactive-class-value="<%= chip_inactive %>">
+     data-type-filter-active-class-value="chip-active"
+     data-type-filter-inactive-class-value="chip">
   <% if type_counts.size > 1 %>
-    <div class="mb-2 flex items-center gap-1.5 flex-wrap">
-      <span class="text-[11px] uppercase tracking-wide text-slate-500 font-medium mr-1">Type:</span>
+    <div class="mb-4 flex items-center gap-1.5 flex-wrap">
+      <span class="eyebrow mr-1">Type</span>
       <button type="button"
               data-type-filter-target="chip"
               data-action="click->type-filter#filter"
               data-type-value="all"
-              class="<%= chip_active %>">All (<%= sfields.size %>)</button>
+              class="chip-active">All · <%= sfields.size %></button>
       <% type_counts.each do |t, c| %>
         <button type="button"
                 data-type-filter-target="chip"
                 data-action="click->type-filter#filter"
                 data-type-value="<%= t %>"
-                class="<%= chip_inactive %>"><%= t %> (<%= c %>)</button>
+                class="chip"><%= t %> · <%= c %></button>
       <% end %>
     </div>
   <% end %>
 
-  <div class="overflow-x-auto">
-  <table class="min-w-full divide-y divide-slate-200 text-sm" data-controller="sortable-table">
-    <thead class="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
+  <div class="overflow-x-auto -mx-5 sm:mx-0">
+  <table class="table-clean" data-controller="sortable-table">
+    <thead>
       <tr>
-        <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="text">API name<span class="sort-indicator"></span></th>
-        <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="text">Type<span class="sort-indicator"></span></th>
-        <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="number">Length<span class="sort-indicator"></span></th>
-        <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="text">Sensitivity<span class="sort-indicator"></span></th>
-        <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="number">Null %<span class="sort-indicator"></span></th>
-        <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="number">Distinct<span class="sort-indicator"></span></th>
+        <th class="cursor-pointer select-none hover:text-slate-700" data-action="click->sortable-table#sort" data-sort-type="text">API name<span class="sort-indicator"></span></th>
+        <th class="cursor-pointer select-none hover:text-slate-700" data-action="click->sortable-table#sort" data-sort-type="text">Type<span class="sort-indicator"></span></th>
+        <th class="cursor-pointer select-none hover:text-slate-700 text-right" data-action="click->sortable-table#sort" data-sort-type="number">Length<span class="sort-indicator"></span></th>
+        <th class="cursor-pointer select-none hover:text-slate-700" data-action="click->sortable-table#sort" data-sort-type="text">Sensitivity<span class="sort-indicator"></span></th>
+        <th class="cursor-pointer select-none hover:text-slate-700 text-right" data-action="click->sortable-table#sort" data-sort-type="number">Null %<span class="sort-indicator"></span></th>
+        <th class="cursor-pointer select-none hover:text-slate-700 text-right" data-action="click->sortable-table#sort" data-sort-type="number">Distinct<span class="sort-indicator"></span></th>
         <% unless hide_value_cols %>
-          <th class="px-3 py-2">Top values</th>
-          <th class="px-3 py-2">Samples</th>
+          <th>Top values</th>
+          <th>Samples</th>
         <% end %>
-        <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="number">Refs<span class="sort-indicator"></span></th>
+        <th class="cursor-pointer select-none hover:text-slate-700 text-right" data-action="click->sortable-table#sort" data-sort-type="number">Refs<span class="sort-indicator"></span></th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-slate-100" data-sortable-table-target="body">
+    <tbody data-sortable-table-target="body">
       <% sfields.each do |f| %>
         <% fp = field_profiles[f.id] %>
         <% may_view_values = f.sensitivity.to_s == "safe" || can_see_sensitive %>
@@ -72,57 +70,67 @@
             data-controller="expandable"
             data-expandable-frame-id-value="<%= field_frame_id %>"
             data-expandable-frame-url-value="<%= field_object_path(sobject.api_name, field_name: f.api_name, run: run.id) %>">
-          <td class="px-3 py-2 font-mono text-xs" data-sort-value="<%= f.api_name %>">
-            <button type="button"
-                    data-action="click->expandable#toggle"
-                    class="mr-1 inline-block w-3 text-slate-400 hover:text-slate-900"
-                    aria-label="Expand field detail"
-                    title="Show extended view">
-              <span data-expandable-target="chevron">▸</span>
-            </button>
-            <%= f.api_name %>
-            <% if f.calculated %><span class="ml-1 rounded bg-violet-100 text-violet-900 px-1 text-[10px]">calc</span><% end %>
-            <% if f.encrypted %><span class="ml-1 rounded bg-rose-100 text-rose-900 px-1 text-[10px]">enc</span><% end %>
+          <td class="font-mono text-xs" data-sort-value="<%= f.api_name %>">
+            <div class="flex items-center gap-1.5">
+              <button type="button"
+                      data-action="click->expandable#toggle"
+                      class="inline-flex w-4 h-4 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                      aria-label="Expand field detail"
+                      title="Show extended view">
+                <span data-expandable-target="chevron" class="text-[9px]">▸</span>
+              </button>
+              <span class="text-slate-900"><%= f.api_name %></span>
+              <% if f.calculated %><span class="badge-info">calc</span><% end %>
+              <% if f.encrypted %><span class="badge-danger">enc</span><% end %>
+              <% if %w[picklist multipicklist].include?(f.data_type) && f.picklist_count.to_i > 0 %>
+                <span class="badge-neutral" title="<%= f.picklist_count %> picklist values"><%= f.picklist_count %> vals</span>
+              <% end %>
+            </div>
           </td>
-          <td class="px-3 py-2 text-slate-700"><%= f.data_type %></td>
-          <td class="px-3 py-2 text-slate-700" data-sort-value="<%= f.length %>"><%= f.length || "—" %></td>
-          <td class="px-3 py-2" data-sort-value="<%= f.sensitivity %>">
+          <td class="text-slate-600 text-xs"><%= f.data_type %></td>
+          <td class="text-right tabular-nums text-slate-600 text-xs" data-sort-value="<%= f.length %>"><%= f.length || "—" %></td>
+          <td data-sort-value="<%= f.sensitivity %>">
             <% if f.sensitivity == "safe" %>
-              <span class="text-emerald-700 text-xs"><%= sensitivity_label(f.sensitivity) %></span>
+              <span class="text-slate-400 text-xs"><%= sensitivity_label(f.sensitivity) %></span>
             <% else %>
-              <span class="text-amber-800 text-xs"><%= sensitivity_label(f.sensitivity) %></span>
+              <span class="badge-warning"><%= sensitivity_label(f.sensitivity) %></span>
             <% end %>
           </td>
-          <td class="px-3 py-2 text-slate-700" data-sort-value="<%= fp&.null_rate %>"><%= fp&.null_rate ? "#{(fp.null_rate * 100).round(1)}%" : "—" %></td>
-          <td class="px-3 py-2 text-slate-700" data-sort-value="<%= fp&.distinct_count_suppressed ? nil : fp&.distinct_count %>">
+          <td class="text-right tabular-nums text-slate-700 text-xs" data-sort-value="<%= fp&.null_rate %>"><%= fp&.null_rate ? "#{(fp.null_rate * 100).round(1)}%" : "—" %></td>
+          <td class="text-right tabular-nums text-slate-700 text-xs" data-sort-value="<%= fp&.distinct_count_suppressed ? nil : fp&.distinct_count %>">
             <% if fp.nil? %>—
-            <% elsif fp.distinct_count_suppressed %><span class="italic text-slate-500" title="Distinct < 5 on sensitive field — suppressed">suppressed</span>
+            <% elsif fp.distinct_count_suppressed %><span class="italic text-slate-400" title="Distinct < 5 on sensitive field — suppressed">suppressed</span>
             <% else %><%= fp.distinct_count || "—" %><% end %>
           </td>
           <% unless hide_value_cols %>
-            <td class="px-3 py-2">
-              <% if fp.nil? || fp.top_values.blank? %>—
+            <td>
+              <% if fp.nil? || fp.top_values.blank? %><span class="text-slate-300">—</span>
               <% elsif may_view_values %>
-                <ul class="text-xs"><% fp.top_values.first(5).each do |tv| %><li><%= tv["value"] || tv["v"] %> (<%= tv["count"] || tv["c"] %>)</li><% end %></ul>
+                <ul class="text-xs text-slate-600 space-y-0.5"><% fp.top_values.first(5).each do |tv| %><li><%= tv["value"] || tv["v"] %> <span class="text-slate-400">(<%= tv["count"] || tv["c"] %>)</span></li><% end %></ul>
               <% else %>
                 <%= redacted_cell(f) %>
               <% end %>
             </td>
-            <td class="px-3 py-2">
-              <% if fp.nil? || fp.sample_values.blank? %>—
+            <td>
+              <% if fp.nil? || fp.sample_values.blank? %><span class="text-slate-300">—</span>
               <% elsif may_view_values %>
-                <ul class="text-xs"><% fp.sample_values.first(3).each do |s| %><li><%= s.to_s.truncate(40) %></li><% end %></ul>
+                <ul class="text-xs text-slate-600 space-y-0.5"><% fp.sample_values.first(3).each do |s| %><li><%= s.to_s.truncate(40) %></li><% end %></ul>
               <% else %>
                 <%= redacted_cell(f) %>
               <% end %>
             </td>
           <% end %>
-          <td class="px-3 py-2 text-slate-700"><%= f.references_count %></td>
+          <td class="text-right tabular-nums text-slate-700 text-xs"><%= f.references_count %></td>
         </tr>
-        <tr id="<%= field_frame_id %>-row" class="hidden" data-detail-for="<%= f.api_name %>" data-field-type="<%= f.data_type %>">
+        <%# Use the HTML `hidden` attribute (not just .hidden class) so the
+            row is enforced display:none by Tailwind's Preflight !important
+            rule — defends against any future specificity collision with the
+            .table-clean row styling. expandable_controller toggles the
+            attribute. %>
+        <tr id="<%= field_frame_id %>-row" hidden data-detail-for="<%= f.api_name %>" data-field-type="<%= f.data_type %>">
           <td colspan="<%= col_count %>" class="p-0 border-0">
             <%= turbo_frame_tag field_frame_id do %>
-              <div class="bg-slate-50 px-4 py-2 text-xs text-slate-500">Loading field detail…</div>
+              <div class="bg-slate-50/70 px-5 py-3 text-xs text-slate-500">Loading field detail…</div>
             <% end %>
           </td>
         </tr>

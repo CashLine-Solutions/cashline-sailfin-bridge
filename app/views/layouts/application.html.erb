@@ -10,7 +10,7 @@
     <%= csp_meta_tag %>
     <%# Turbo Drive prefetches every link on hover by default. For this app
         that means hovering near the nav fires concurrent GETs against /objects,
-        /erds, /graph, /reports — each one a SQL-heavy query. During a live
+        /erds, /visualizations, /reports — each one a SQL-heavy query. During a live
         extraction with ProfileObjectJobs filling the connection pool, this
         saturates Postgres's connection pool and surfaces as "Failed to fetch"
         TypeError in the browser console plus apparent page hangs. Opt in
@@ -32,13 +32,17 @@
     <%= javascript_importmap_tags %>
   </head>
 
-  <body class="bg-slate-50 text-slate-900">
+  <body class="min-h-screen bg-slate-50 text-slate-800 antialiased">
     <div class="flex min-h-screen">
       <%= render "shared/nav" %>
       <div class="flex-1 min-w-0">
-        <% if flash[:notice] %><div class="mx-4 sm:mx-6 mt-4 rounded bg-emerald-50 text-emerald-900 px-3 py-2 text-sm"><%= flash[:notice] %></div><% end %>
-        <% if flash[:alert] %><div class="mx-4 sm:mx-6 mt-4 rounded bg-rose-50 text-rose-900 px-3 py-2 text-sm"><%= flash[:alert] %></div><% end %>
-        <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        <% if flash[:notice] || flash[:alert] %>
+          <div class="max-w-7xl mx-auto px-4 sm:px-6 mt-4">
+            <% if flash[:notice] %><div class="flash-notice"><%= flash[:notice] %></div><% end %>
+            <% if flash[:alert] %><div class="flash-alert"><%= flash[:alert] %></div><% end %>
+          </div>
+        <% end %>
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
           <%= yield %>
         </main>
       </div>

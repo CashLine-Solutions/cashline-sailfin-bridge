@@ -1,9 +1,6 @@
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
--- transaction_timeout requires Postgres 17+. Omitted so this dump loads on
--- 14+ environments (current local dev). Re-add once production Postgres is
--- on 17+ for tighter timeout coverage.
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -127,4 +124,6 @@ CREATE INDEX index_solid_cache_entries_on_key_hash_and_byte_size ON public.solid
 --
 
 SET search_path TO "$user", public;
+
+
 

@@ -4,11 +4,14 @@ import { Controller } from "@hotwired/stimulus"
 // data-expandable-frame-id-value pointing at the detail row's id, and a
 // data-expandable-frame-url-value with the URL Turbo should fetch on first
 // expand. Subsequent toggles reuse the cached frame contents.
+//
+// The detail row uses the HTML `hidden` attribute (enforced via Tailwind
+// Preflight's [hidden]{display:none!important}) rather than a CSS class so
+// the row state cannot be undermined by another rule's specificity.
 export default class extends Controller {
   static values = {
     frameId: String,
-    frameUrl: String,
-    expandedClass: { type: String, default: "expanded" }
+    frameUrl: String
   }
   static targets = ["chevron"]
 
@@ -18,12 +21,14 @@ export default class extends Controller {
     const frame = document.getElementById(this.frameIdValue)
     if (!detailRow || !frame) return
 
-    const isOpen = !detailRow.classList.contains("hidden")
+    const isOpen = !detailRow.hidden
 
     if (isOpen) {
+      detailRow.hidden = true
       detailRow.classList.add("hidden")
       this.#setChevron("▸")
     } else {
+      detailRow.hidden = false
       detailRow.classList.remove("hidden")
       this.#setChevron("▾")
       // Lazy-load on first open. Subsequent opens skip the fetch because

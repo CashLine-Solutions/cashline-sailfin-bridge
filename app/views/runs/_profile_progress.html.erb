@@ -10,23 +10,27 @@
 <% if expected > 0 && progress[:total] > 0 %>
   <% percent = expected.zero? ? 0 : (finished.to_f / expected * 100).round %>
   <% all_done = finished >= expected %>
-  <div class="mt-4 rounded border border-slate-200 bg-slate-50 p-3 text-sm">
-    <div class="flex items-center justify-between mb-2">
-      <span class="font-medium text-slate-800">
-        <% if all_done %>
-          Profiling complete
-        <% else %>
-          Profiling in progress
+  <div class="mt-6 rounded-md bg-slate-50 ring-1 ring-slate-200 p-4">
+    <div class="flex items-center justify-between mb-2.5">
+      <div class="flex items-center gap-2">
+        <% unless all_done %>
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+          </span>
         <% end %>
-      </span>
-      <span class="text-xs text-slate-600">
+        <span class="text-sm font-medium text-slate-900">
+          <%= all_done ? "Profiling complete" : "Profiling in progress" %>
+        </span>
+      </div>
+      <span class="text-xs text-slate-500 tabular-nums">
         <%= progress[:complete] %> / <%= expected %> complete<%
-        %><% if progress[:failed].positive? %> · <span class="text-rose-700"><%= progress[:failed] %> failed</span><% end %><%
+        %><% if progress[:failed].positive? %> · <span class="text-rose-600 font-medium"><%= progress[:failed] %> failed</span><% end %><%
         %><% if progress[:pending].positive? && !all_done %> · <%= progress[:pending] %> running<% end %>
       </span>
     </div>
-    <div class="h-2 w-full rounded bg-slate-200 overflow-hidden">
-      <div class="h-full <%= all_done ? "bg-emerald-500" : "bg-blue-500" %> transition-all" style="width: <%= percent %>%"></div>
+    <div class="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+      <div class="h-full rounded-full <%= all_done ? "bg-emerald-500" : "bg-blue-500" %> transition-all duration-500" style="width: <%= percent %>%"></div>
     </div>
   </div>
 <% end %>

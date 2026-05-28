@@ -3,6 +3,7 @@ class Sobject < ApplicationRecord
 
   belongs_to :extraction_run
   has_many :sfields, dependent: :destroy
+  has_many :srecord_types, dependent: :destroy
   has_many :object_profiles, dependent: :destroy
   has_many :outgoing_relationships, class_name: "Srelationship",
                                     foreign_key: :source_sobject_id, dependent: :destroy
