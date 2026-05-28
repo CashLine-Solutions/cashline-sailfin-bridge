@@ -1,66 +1,76 @@
 <% content_for(:title, "Runs") %>
-<div class="flex items-center justify-between mb-6">
-  <div>
-    <h1 class="text-2xl font-semibold">Extraction runs</h1>
-    <p class="text-sm text-slate-600">Most recent 100 runs.</p>
-  </div>
-  <% if policy(ExtractionRun).create? %>
-    <%= link_to "New run", new_run_path, class: "inline-flex items-center rounded bg-slate-900 text-white px-3 py-2 text-sm" %>
-  <% end %>
-</div>
 
-<%= form_with url: runs_path, method: :get, local: true, class: "mb-4 flex items-center gap-3 text-sm" do %>
-  <%= label_tag :status, "Status", class: "text-slate-700" %>
-  <%= select_tag :status, options_for_select([["All", ""], *ExtractionRun::STATUSES.map { |s| [s, s] }], params[:status]), class: "rounded border-slate-300" %>
-  <%= label_tag :include_sensitive, "Sensitive", class: "text-slate-700" %>
-  <%= select_tag :include_sensitive, options_for_select([["All", ""], ["Yes", "1"], ["No", "0"]], params[:include_sensitive]), class: "rounded border-slate-300" %>
-  <%= submit_tag "Filter", class: "rounded bg-slate-200 px-3 py-1.5" %>
+<%= render "shared/page_header",
+      eyebrow: "Extraction",
+      title: "Runs",
+      subtitle: "Most recent #{[@runs.size, 100].min} extraction runs. Pick one to mark it active for the rest of the app." do %>
+  <% if policy(ExtractionRun).create? %>
+    <%= link_to "New run", new_run_path, class: "btn-primary" %>
+  <% end %>
+<% end %>
+
+<%= form_with url: runs_path, method: :get, local: true, class: "card card-body mb-6 flex flex-wrap items-end gap-4 text-sm" do %>
+  <div>
+    <%= label_tag :status, "Status", class: "label" %>
+    <%= select_tag :status,
+          options_for_select([["All", ""], *ExtractionRun::STATUSES.map { |s| [s.tr("_", " "), s] }], params[:status]),
+          class: "input" %>
+  </div>
+  <div>
+    <%= label_tag :include_sensitive, "Sensitive", class: "label" %>
+    <%= select_tag :include_sensitive,
+          options_for_select([["All", ""], ["Yes", "1"], ["No", "0"]], params[:include_sensitive]),
+          class: "input" %>
+  </div>
+  <%= submit_tag "Filter", class: "btn-secondary btn-sm" %>
 <% end %>
 
 <% if @runs.empty? %>
-  <div class="rounded border border-dashed border-slate-300 p-10 text-center bg-white">
-    <p class="text-slate-700">No runs yet.</p>
+  <div class="empty-state">
+    <h2>No runs yet</h2>
+    <p>Extraction runs you trigger from Salesforce will show up here.</p>
     <% if policy(ExtractionRun).create? %>
-      <p class="mt-2"><%= link_to "Run your first extraction", new_run_path, class: "text-blue-700 underline" %> to populate this view.</p>
+      <div class="mt-4"><%= link_to "Run your first extraction", new_run_path, class: "btn-primary" %></div>
     <% end %>
   </div>
 <% else %>
-  <div class="overflow-hidden rounded border border-slate-200 bg-white">
-    <table class="min-w-full divide-y divide-slate-200 text-sm">
-      <thead class="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
+  <div class="card overflow-hidden">
+    <table class="table-clean">
+      <thead>
         <tr>
-          <th class="px-3 py-2">Run</th>
-          <th class="px-3 py-2">Status</th>
-          <th class="px-3 py-2">Started</th>
-          <th class="px-3 py-2">Completed</th>
-          <th class="px-3 py-2">Objects</th>
-          <th class="px-3 py-2">Sensitive</th>
-          <th class="px-3 py-2"></th>
+          <th>Run</th>
+          <th>Status</th>
+          <th>Started</th>
+          <th>Completed</th>
+          <th class="text-right">Objects</th>
+          <th></th>
+          <th></th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-slate-100">
+      <tbody>
         <% @runs.each do |run| %>
           <% can_view = policy(run).show? %>
-          <tr class="<%= 'border-l-4 border-amber-400' if run.include_sensitive %>">
-            <td class="px-3 py-2 font-mono text-xs">
-              <% if can_view %>
-                <%= link_to run.directory_token, run_path(run), class: "text-blue-700 underline" %>
-              <% else %>
-                <span class="text-slate-500" title="Contains sensitive data — requires sensitive_data_access role."><%= run.directory_token %></span>
-              <% end %>
+          <tr class="<%= 'bg-amber-50/40' if run.include_sensitive %>">
+            <td>
+              <div class="flex items-center gap-2">
+                <% if can_view %>
+                  <%= link_to run.directory_token, run_path(run), class: "font-mono text-sm font-medium text-blue-600 hover:text-blue-700" %>
+                <% else %>
+                  <span class="font-mono text-sm text-slate-400" title="Contains sensitive data — requires sensitive_data_access role."><%= run.directory_token %></span>
+                <% end %>
+                <% if run.include_sensitive %><span class="badge-warning">sensitive</span><% end %>
+              </div>
             </td>
-            <td class="px-3 py-2"><%= status_badge(run.status) %></td>
-            <td class="px-3 py-2 text-slate-700"><%= time_ago_or_dash(run.started_at) %></td>
-            <td class="px-3 py-2 text-slate-700"><%= time_ago_or_dash(run.completed_at) %></td>
-            <td class="px-3 py-2 text-slate-700"><%= can_view ? (@sobject_counts[run.id] || 0) : "—" %></td>
-            <td class="px-3 py-2">
-              <% if run.include_sensitive %><span class="rounded bg-amber-100 text-amber-900 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">sensitive</span><% end %>
-            </td>
-            <td class="px-3 py-2 text-right">
+            <td><%= status_badge(run.status) %></td>
+            <td class="text-slate-600 text-xs"><%= time_ago_or_dash(run.started_at) %></td>
+            <td class="text-slate-600 text-xs"><%= time_ago_or_dash(run.completed_at) %></td>
+            <td class="text-right tabular-nums text-slate-700"><%= can_view ? (@sobject_counts[run.id] || 0) : "—" %></td>
+            <td></td>
+            <td class="text-right">
               <% if can_view %>
-                <%= button_to "Make active", select_run_path(run), method: :post, class: "text-xs text-blue-700 underline" %>
+                <%= button_to "Make active", select_run_path(run), method: :post, class: "btn-ghost btn-sm" %>
               <% else %>
-                <span class="text-xs text-slate-500" title="Permission required">restricted</span>
+                <span class="text-xs text-slate-400" title="Permission required">restricted</span>
               <% end %>
             </td>
           </tr>

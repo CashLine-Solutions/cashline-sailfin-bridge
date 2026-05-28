@@ -1,35 +1,55 @@
 <% if authenticated? %>
-  <nav class="bg-white border-b border-slate-200 mb-6">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
-      <div class="flex items-center gap-6">
-        <%= link_to "Cashline", root_path, class: "font-semibold text-slate-900" %>
-        <% nav_items = [
-             ["Runs", :runs_path],
-             ["Objects", :objects_path],
-             ["ERDs", :erds_path],
-             ["Visualize", :visualizations_path],
-             ["Reports", :reports_hub_orphan_path],
-             ["Diff", :new_diff_path]
-           ] %>
-        <% nav_items.each do |label, path_helper| %>
-          <% next unless respond_to?(path_helper) %>
-          <%= link_to label, send(path_helper), class: "text-sm text-slate-700 hover:text-slate-900" %>
-        <% end %>
-      </div>
-      <div class="flex items-center gap-4">
-        <% if current_run %>
-          <span class="inline-flex items-center gap-2 rounded bg-slate-100 px-3 py-1 text-xs text-slate-700" title="Active run">
-            <span>Active run:</span>
-            <%= link_to current_run.directory_token, run_path(current_run), class: "font-mono underline decoration-dotted" %>
-            <span class="text-slate-500"><%= time_ago_or_dash(current_run.completed_at || current_run.started_at) %> · <%= current_run.sobjects.count %> objects</span>
-            <% if current_run.include_sensitive %>
-              <span title="Sensitive run" class="rounded bg-amber-100 text-amber-900 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">sensitive</span>
+  <%# Active-section detection — match by controller name so subroutes
+      (e.g. /runs/:id, /objects/:api_name) still highlight the section. %>
+  <% current_section = controller_name %>
+  <% nav_items = [
+       ["Runs",       :runs_path,             %w[runs]],
+       ["Objects",    :objects_path,          %w[objects]],
+       ["ERDs",       :erds_path,             %w[erds]],
+       ["Visualize",  :visualizations_path,   %w[visualizations]],
+       ["Reports",    :reports_hub_orphan_path, %w[reports]],
+       ["Diff",       :new_diff_path,         %w[diffs]]
+     ] %>
+
+  <header class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+      <div class="flex items-center justify-between h-14">
+        <div class="flex items-center gap-1">
+          <%= link_to root_path, class: "mr-4 flex items-center gap-2.5 font-semibold text-slate-900 tracking-tight" do %>
+            <%= render "shared/logo", size_class: "h-7 w-auto" %>
+            <span class="text-xs font-normal text-slate-500 hidden sm:inline border-l border-slate-200 pl-2.5">ontology</span>
+          <% end %>
+          <% nav_items.each do |label, path_helper, sections| %>
+            <% next unless respond_to?(path_helper) %>
+            <% active = sections.include?(current_section) %>
+            <%= link_to send(path_helper),
+                  class: "relative px-3 py-2 text-sm font-medium rounded-md transition-colors #{active ? 'text-slate-900' : 'text-slate-500 hover:text-slate-900'}" do %>
+              <%= label %>
+              <% if active %>
+                <span class="absolute inset-x-3 -bottom-px h-0.5 bg-slate-900 rounded-full"></span>
+              <% end %>
             <% end %>
-          </span>
-        <% end %>
-        <span class="text-sm text-slate-600"><%= Current.user&.email_address %></span>
-        <%= button_to "Sign out", session_path, method: :delete, class: "text-sm text-slate-700 hover:text-slate-900 underline" %>
+          <% end %>
+        </div>
+        <div class="flex items-center gap-3">
+          <% if current_run %>
+            <%= link_to run_path(current_run),
+                  class: "group hidden md:inline-flex items-center gap-2 rounded-full bg-slate-100 hover:bg-slate-200 px-3 py-1 text-xs text-slate-700 transition-colors",
+                  title: "Active run — click to open" do %>
+              <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+              <span class="text-slate-500">Active:</span>
+              <span class="font-mono text-slate-900"><%= current_run.directory_token %></span>
+              <span class="text-slate-400">·</span>
+              <span class="text-slate-500"><%= current_run.sobjects.count %> objects</span>
+              <% if current_run.include_sensitive %>
+                <span class="badge-warning ml-1">sensitive</span>
+              <% end %>
+            <% end %>
+          <% end %>
+          <span class="hidden sm:inline text-xs text-slate-500"><%= Current.user&.email_address %></span>
+          <%= button_to "Sign out", session_path, method: :delete, class: "btn-ghost btn-sm" %>
+        </div>
       </div>
     </div>
-  </nav>
+  </header>
 <% end %>

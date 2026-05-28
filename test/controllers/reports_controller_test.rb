@@ -220,4 +220,45 @@ class ReportsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match("SensitiveObj", response.body)
   end
+
+  test "record_types lists subtypes with scoped picklist fields" do
+    SrecordType.create!(sobject: @a, salesforce_id: "012CUST", developer_name: "Customer",
+                        label: "Customer Account", default_mapping: true,
+                        picklist_values: { "Industry" => %w[Agriculture Technology] })
+
+    sign_in(@user)
+    get reports_record_types_path(run: @run.id)
+
+    assert_response :success
+    assert_match("Customer Account", response.body)
+    assert_match("Industry (2)", response.body)
+  end
+
+  test "record_types CSV download" do
+    SrecordType.create!(sobject: @a, salesforce_id: "012CUST", developer_name: "Customer", label: "Customer Account")
+
+    sign_in(@user)
+    get reports_record_types_path(run: @run.id, format: :csv)
+
+    assert_response :success
+    assert_equal "text/csv", response.media_type
+    assert_match(/object_name,namespace_prefix,label,developer_name,default_mapping,available,scoped_field_count/, response.body)
+    assert_match("Customer Account", response.body)
+  end
+
+  test "record_types nil-run + .csv does not raise MissingTemplate" do
+    sign_in(@user)
+    get reports_record_types_path(format: :csv)
+    assert_response :success
+  end
+
+  test "record_types blocks sensitive run for users without sensitive_data_access" do
+    sensitive_run = ExtractionRun.create!(api_version: "62.0", user: @user, seed_objects: %w[Account], status: "complete", completed_at: Time.current, include_sensitive: true)
+    so = Sobject.create!(extraction_run: sensitive_run, api_name: "SecretObj", raw_describe: {})
+    SrecordType.create!(sobject: so, salesforce_id: "012SEC", developer_name: "Secret", label: "SecretRecordType")
+
+    sign_in(@user)
+    get reports_record_types_path(run: sensitive_run.id)
+    refute_match("SecretRecordType", response.body, "Sensitive record type names must not leak via ?run param")
+  end
 end

@@ -1,1 +1,205 @@
 @import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+ * Design tokens & component layer
+ *
+ * Refactoring-UI lessons applied:
+ *  - One neutral scale (slate), one accent (blue-600), status colours
+ *    (emerald / amber / rose) used only on status, never on body text.
+ *  - Hierarchy through font *weight* + colour, not size alone.
+ *  - Elevation via subtle shadow + 1px ring, not heavy borders.
+ *  - Limited type scale: eyebrow / page-title / section-title / body.
+ *  - Buttons share a single height and rhythm; primary / secondary / ghost
+ *    / danger are the only variants. `.btn-sm` for compact uses.
+ *  - Inputs share one focus ring (blue-500/40) so the page feels coherent.
+ *
+ * Tailwind v4 notes:
+ *  - @apply cannot compose custom classes — each variant spells out its
+ *    utility list directly.
+ *  - There's no built-in forms reset; <select> needs `appearance: none`
+ *    plus an explicit chevron, or it renders as the native OS widget and
+ *    ignores border / bg / padding utilities.
+ * ------------------------------------------------------------------------- */
+
+@layer components {
+  /* ---------- Type scale ---------- */
+  .eyebrow {
+    @apply text-xs font-medium uppercase tracking-wider text-slate-500;
+  }
+  .page-title {
+    @apply text-2xl font-semibold tracking-tight text-slate-900;
+  }
+  .page-subtitle {
+    @apply mt-1 text-sm text-slate-600;
+  }
+  .section-title {
+    @apply text-lg font-semibold text-slate-900;
+  }
+  .section-subtitle {
+    @apply mt-1 text-sm text-slate-600;
+  }
+
+  /* ---------- Cards ---------- */
+  .card {
+    @apply rounded-lg bg-white ring-1 ring-slate-200 shadow-sm;
+  }
+  .card-body {
+    @apply p-5;
+  }
+  .card-header {
+    @apply px-5 py-4 border-b border-slate-100;
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md
+           bg-slate-900 text-white hover:bg-slate-800 shadow-sm
+           text-sm font-medium px-3.5 py-2 transition-colors
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-1
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md
+           bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900
+           text-sm font-medium px-3.5 py-2 transition-colors
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-1
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md
+           bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900
+           text-sm font-medium px-3.5 py-2 transition-colors
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-1
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md
+           bg-rose-600 text-white hover:bg-rose-700 shadow-sm
+           text-sm font-medium px-3.5 py-2 transition-colors
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 focus-visible:ring-offset-1
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-sm {
+    @apply px-2.5 py-1.5 text-xs;
+  }
+  .btn-link {
+    @apply text-sm font-medium text-blue-600 hover:text-blue-700;
+  }
+
+  /* ---------- Inputs ----------
+   * Border width + style declared explicitly (not just colour), so the
+   * outline shows whether the UA renders a default border or not.
+   * Selects need an additional appearance reset (below).
+   */
+  .input {
+    @apply block w-full rounded-md bg-white text-sm text-slate-900
+           placeholder:text-slate-400 shadow-sm
+           border border-slate-300 px-3 py-2
+           focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 focus:outline-none;
+  }
+  .input-sm {
+    @apply text-sm py-1.5;
+  }
+  .label {
+    @apply block text-sm font-medium text-slate-700 mb-1.5;
+  }
+  .help-text {
+    @apply mt-1.5 text-xs text-slate-500 leading-relaxed;
+  }
+
+  /* Strip OS chrome from <select> + draw a chevron. Inline SVG so no
+   * asset pipeline needed. Stroke is slate-500 to sit alongside body
+   * text without competing. */
+  select.input,
+  select.input-sm {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 1.25em 1.25em;
+    padding-right: 2.5rem;
+  }
+
+  /* ---------- Badges ---------- */
+  .badge-neutral {
+    @apply inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-700
+           px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide;
+  }
+  .badge-info {
+    @apply inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-700
+           px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide;
+  }
+  .badge-success {
+    @apply inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700
+           px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide;
+  }
+  .badge-warning {
+    @apply inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-800
+           px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide;
+  }
+  .badge-danger {
+    @apply inline-flex items-center gap-1 rounded-full bg-rose-50 text-rose-700
+           px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide;
+  }
+
+  /* ---------- Chips ---------- */
+  .chip {
+    @apply inline-flex items-center rounded-full bg-white text-slate-600
+           ring-1 ring-slate-200 hover:ring-slate-300 hover:text-slate-900
+           px-3 py-1 text-xs font-medium transition-colors;
+  }
+  .chip-active {
+    @apply inline-flex items-center rounded-full bg-slate-900 text-white
+           px-3 py-1 text-xs font-medium ring-1 ring-slate-900;
+  }
+
+  /* ---------- Empty state ---------- */
+  .empty-state {
+    @apply rounded-lg bg-white ring-1 ring-slate-200 p-10 text-center;
+  }
+  .empty-state h2 {
+    @apply text-base font-semibold text-slate-900 mb-1;
+  }
+  .empty-state p {
+    @apply text-sm text-slate-600;
+  }
+
+  /* ---------- Flash messages ---------- */
+  .flash-notice {
+    @apply rounded-md bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200
+           px-4 py-3 text-sm shadow-sm;
+  }
+  .flash-alert {
+    @apply rounded-md bg-rose-50 text-rose-900 ring-1 ring-rose-200
+           px-4 py-3 text-sm shadow-sm;
+  }
+
+  /* ---------- Tables ---------- */
+  .table-clean {
+    @apply min-w-full text-sm;
+  }
+  .table-clean thead th {
+    @apply px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide
+           text-slate-500 border-b border-slate-200 bg-slate-50/50;
+  }
+  .table-clean tbody td {
+    @apply px-4 py-3 align-top;
+  }
+  .table-clean tbody tr {
+    @apply border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60;
+  }
+
+  /* ---------- Inline code ---------- */
+  .code-inline {
+    @apply rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[0.85em] text-slate-800;
+  }
+
+  /* ---------- Breadcrumb ---------- */
+  .breadcrumb {
+    @apply text-xs text-slate-500;
+  }
+  .breadcrumb a {
+    @apply text-slate-600 hover:text-slate-900;
+  }
+}

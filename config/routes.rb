@@ -35,6 +35,8 @@ Rails.application.routes.draw do
     get :hub_orphan
     get :unused_fields
     get :mapping_order
+    get :picklists
+    get :record_types
   end
 
   resources :diffs, only: [ :new, :create, :show ]

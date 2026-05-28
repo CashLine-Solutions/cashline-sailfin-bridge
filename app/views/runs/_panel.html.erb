@@ -1,52 +1,84 @@
 <div id="<%= dom_id(run, :panel) %>" class="space-y-6">
-  <div class="rounded border border-slate-200 bg-white p-6">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-semibold">Run <span class="font-mono text-base text-slate-700"><%= run.directory_token %></span></h1>
-        <p class="text-sm text-slate-600">API <%= run.api_version %> · seed: <code><%= run.seed_objects.to_a.join(", ") %></code></p>
+  <div class="card">
+    <div class="card-body">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="eyebrow">Run</p>
+          <h1 class="page-title mt-1 font-mono text-xl break-all"><%= run.directory_token %></h1>
+          <p class="mt-1.5 text-sm text-slate-600">
+            API <%= run.api_version %> · seed:
+            <code class="code-inline"><%= run.seed_objects.to_a.join(", ") %></code>
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <%= status_badge(run.status) %>
+          <% if run.include_sensitive %><span class="badge-warning">sensitive</span><% end %>
+        </div>
       </div>
-      <div class="flex items-center gap-3">
-        <%= status_badge(run.status) %>
-        <% if run.include_sensitive %><span class="rounded bg-amber-100 text-amber-900 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">sensitive</span><% end %>
-      </div>
-    </div>
 
-    <dl class="mt-4 grid grid-cols-2 gap-y-2 gap-x-6 text-sm">
-      <dt class="text-slate-500">Started</dt><dd><%= time_ago_or_dash(run.started_at) %></dd>
-      <dt class="text-slate-500">Completed</dt><dd><%= time_ago_or_dash(run.completed_at) %></dd>
-      <dt class="text-slate-500">Objects extracted</dt><dd><%= run.sobjects.count %></dd>
-      <dt class="text-slate-500">Triggered by</dt><dd><%= run.user&.email_address || "—" %></dd>
-      <% if run.include_sensitive && run.retained_until %>
-        <dt class="text-slate-500">Retained until</dt><dd><%= run.retained_until.to_date %></dd>
+      <dl class="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-y-4 gap-x-6">
+        <div>
+          <dt class="eyebrow">Started</dt>
+          <dd class="mt-1 text-sm font-medium text-slate-900"><%= time_ago_or_dash(run.started_at) %></dd>
+        </div>
+        <div>
+          <dt class="eyebrow">Completed</dt>
+          <dd class="mt-1 text-sm font-medium text-slate-900"><%= time_ago_or_dash(run.completed_at) %></dd>
+        </div>
+        <div>
+          <dt class="eyebrow">Objects extracted</dt>
+          <dd class="mt-1 text-sm font-medium text-slate-900 tabular-nums"><%= run.sobjects.count %></dd>
+        </div>
+        <div>
+          <dt class="eyebrow">Triggered by</dt>
+          <dd class="mt-1 text-sm font-medium text-slate-900 truncate"><%= run.user&.email_address || "—" %></dd>
+        </div>
+        <% if run.include_sensitive && run.retained_until %>
+          <div>
+            <dt class="eyebrow">Retained until</dt>
+            <dd class="mt-1 text-sm font-medium text-amber-700"><%= run.retained_until.to_date %></dd>
+          </div>
+        <% end %>
+      </dl>
+
+      <%= render "profile_progress", run: run %>
+
+      <% if run.error_message.present? %>
+        <div class="mt-4 flash-alert whitespace-pre-wrap"><%= run.error_message %></div>
       <% end %>
-    </dl>
 
-    <%= render "profile_progress", run: run %>
-
-    <% if run.error_message.present? %>
-      <div class="mt-4 rounded bg-rose-50 text-rose-900 p-3 text-sm whitespace-pre-wrap"><%= run.error_message %></div>
-    <% end %>
-
-    <% if run.partial_failures.any? %>
-      <div class="mt-4 rounded bg-amber-50 text-amber-900 p-3 text-sm">
-        <p class="font-medium mb-1">Partial failures (<%= run.partial_failures.size %>):</p>
-        <ul class="list-disc pl-5 space-y-0.5">
-          <% run.partial_failures.each do |pf| %>
-            <li><code><%= pf["object_api_name"] %></code> — <%= pf["reason"] %></li>
-          <% end %>
-        </ul>
-      </div>
-    <% end %>
+      <% if run.partial_failures.any? %>
+        <div class="mt-4 rounded-md bg-amber-50 ring-1 ring-amber-200 p-4 text-sm text-amber-900">
+          <p class="font-semibold mb-1.5">Partial failures (<%= run.partial_failures.size %>)</p>
+          <ul class="list-disc pl-5 space-y-0.5">
+            <% run.partial_failures.each do |pf| %>
+              <li><code class="code-inline"><%= pf["object_api_name"] %></code> — <%= pf["reason"] %></li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+    </div>
   </div>
 
   <% if run.complete? || run.complete_with_warnings? %>
-    <div class="rounded border border-slate-200 bg-white p-6">
-      <h2 class="text-lg font-semibold mb-3">Next steps</h2>
-      <ul class="space-y-2 text-sm">
-        <li><%= link_to "View extraction results (objects)", objects_path(run: run.id), class: "text-blue-700 underline" %></li>
-        <% if respond_to?(:erds_path) %><li><%= link_to "Per-domain ERDs", erds_path(run: run.id), class: "text-blue-700 underline" %></li><% end %>
-        <% if respond_to?(:visualizations_path) %><li><%= link_to "Visualizations (graph, bubble chart, heatmap)", visualizations_path(run: run.id), class: "text-blue-700 underline" %></li><% end %>
-        <% if respond_to?(:reports_hub_orphan_path) %><li><%= link_to "Hub / orphan report", reports_hub_orphan_path(run: run.id), class: "text-blue-700 underline" %></li><% end %>
+    <div class="card card-body">
+      <h2 class="section-title">Next steps</h2>
+      <p class="section-subtitle mb-4">Explore the run, or move to the comparison and reporting views.</p>
+      <ul class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+        <% [
+          ["Extraction results", "All objects with field counts and filters", objects_path(run: run.id), :objects],
+          ["Per-domain ERDs", "Mermaid diagrams for each modularity cluster", (erds_path(run: run.id) if respond_to?(:erds_path)), :erds],
+          ["Visualizations", "Graph, volume × centrality, field-fill heatmap", (visualizations_path(run: run.id) if respond_to?(:visualizations_path)), :visualizations],
+          ["Reports", "Hub / orphan, unused fields, mapping order", (reports_hub_orphan_path(run: run.id) if respond_to?(:reports_hub_orphan_path)), :reports]
+        ].each do |label, desc, path, key| %>
+          <% next unless path %>
+          <li>
+            <%= link_to path, class: "group flex flex-col rounded-md ring-1 ring-slate-200 hover:ring-slate-300 hover:bg-slate-50 px-4 py-3 transition-colors" do %>
+              <span class="text-sm font-medium text-slate-900 group-hover:text-blue-700"><%= label %> →</span>
+              <span class="text-xs text-slate-500 mt-0.5"><%= desc %></span>
+            <% end %>
+          </li>
+        <% end %>
       </ul>
     </div>
   <% end %>

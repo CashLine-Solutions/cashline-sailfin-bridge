@@ -1,21 +1,24 @@
 <% content_for(:title, "Objects") %>
-<div class="flex items-center justify-between mb-6">
-  <div>
-    <h1 class="text-2xl font-semibold">Objects</h1>
-    <% if @run %>
-      <p class="text-sm text-slate-600">Active run: <span class="font-mono"><%= @run.directory_token %></span></p>
-    <% end %>
-  </div>
+
+<%= render "shared/page_header",
+      eyebrow: "Schema",
+      title: "Objects",
+      subtitle: (@run ? "Salesforce objects discovered by the extraction walk. Filter and download as CSV for offline mapping work." : nil) do %>
   <% if @run %>
-    <%= link_to "Download CSV", objects_path(request.query_parameters.merge(format: :csv)),
-          class: "rounded bg-slate-200 hover:bg-slate-300 text-slate-900 text-sm px-3 py-1.5",
-          title: "Download the filtered field list as CSV (one row per field, sensitive values redacted)" %>
+    <%= link_to objects_path(request.query_parameters.merge(format: :csv)),
+          class: "btn-secondary btn-sm",
+          title: "Download the filtered field list as CSV (one row per field, sensitive values redacted)" do %>
+      <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a1 1 0 011 1v9.586l3.293-3.293a1 1 0 111.414 1.414l-5 5a1 1 0 01-1.414 0l-5-5a1 1 0 111.414-1.414L9 12.586V3a1 1 0 011-1z"/><path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"/></svg>
+      Download CSV
+    <% end %>
   <% end %>
-</div>
+<% end %>
 
 <% if @run.nil? %>
-  <div class="rounded border border-dashed border-slate-300 p-10 text-center bg-white">
-    <p class="text-slate-700">No active run selected. <%= link_to "Pick one", runs_path, class: "text-blue-700 underline" %>.</p>
+  <div class="empty-state">
+    <h2>No active run</h2>
+    <p>Select a run to browse its objects.</p>
+    <div class="mt-4"><%= link_to "Pick a run", runs_path, class: "btn-primary" %></div>
   </div>
 <% else %>
   <%# Filter state lives in URL params so any view is shareable. Building a
@@ -23,99 +26,114 @@
   <% base_params = { run: @run.id, q: params[:q], namespace: params[:namespace],
                      custom: params[:custom], sensitivity: params[:sensitivity],
                      min_fields: params[:min_fields] }.compact_blank %>
-  <% chip_active = "rounded bg-slate-900 text-white px-3 py-1 text-xs font-medium" %>
-  <% chip_inactive = "rounded border border-slate-300 bg-white text-slate-700 hover:border-slate-500 px-3 py-1 text-xs" %>
 
-  <div class="mb-4 space-y-3">
-    <%= form_with url: objects_path, method: :get, local: true, class: "flex items-center gap-3 text-sm flex-wrap" do %>
+  <div class="card card-body mb-6 space-y-4">
+    <%= form_with url: objects_path, method: :get, local: true, class: "flex flex-wrap items-center gap-2" do %>
       <%= hidden_field_tag :run, @run.id %>
       <% %i[namespace custom sensitivity min_fields].each do |key| %>
         <%= hidden_field_tag key, params[key] if params[key].present? %>
       <% end %>
-      <%= text_field_tag :q, params[:q], placeholder: "Search api name", class: "rounded border-slate-300" %>
-      <%= submit_tag "Search", class: "rounded bg-slate-200 px-3 py-1.5" %>
+      <div class="relative flex-1 max-w-sm">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd"/></svg>
+        <%= text_field_tag :q, params[:q], placeholder: "Search API name…", class: "input pl-9" %>
+      </div>
+      <%= submit_tag "Search", class: "btn-secondary btn-sm" %>
       <% if params[:q].present? %>
-        <%= link_to "× clear", objects_path(base_params.except(:q)), class: "text-xs text-slate-500 underline" %>
+        <%= link_to "Clear", objects_path(base_params.except(:q)), class: "btn-ghost btn-sm" %>
       <% end %>
     <% end %>
 
-    <div class="flex items-center gap-2 text-xs flex-wrap">
-      <span class="text-slate-500 font-medium">Namespace:</span>
-      <%= link_to "All", objects_path(base_params.except(:namespace)), class: (params[:namespace].blank? ? chip_active : chip_inactive) %>
-      <% @namespace_facets.sort_by { |_ns, count| -count }.each do |ns, count| %>
-        <% active = params[:namespace].to_s == ns.to_s || (ns == "standard" && params[:namespace] == "standard") %>
-        <%= link_to "#{ns} (#{count})", objects_path(base_params.merge(namespace: ns)), class: (active ? chip_active : chip_inactive) %>
-      <% end %>
+    <div class="flex items-start flex-wrap gap-3 pt-3 border-t border-slate-100">
+      <span class="eyebrow pt-1.5">Namespace</span>
+      <div class="flex flex-wrap gap-1.5">
+        <%= link_to "All", objects_path(base_params.except(:namespace)), class: (params[:namespace].blank? ? "chip-active" : "chip") %>
+        <% @namespace_facets.sort_by { |_ns, count| -count }.each do |ns, count| %>
+          <% active = params[:namespace].to_s == ns.to_s || (ns == "standard" && params[:namespace] == "standard") %>
+          <%= link_to "#{ns} (#{count})", objects_path(base_params.merge(namespace: ns)), class: (active ? "chip-active" : "chip") %>
+        <% end %>
+      </div>
     </div>
 
-    <div class="flex items-center gap-2 text-xs flex-wrap">
-      <span class="text-slate-500 font-medium">Filters:</span>
-      <%= link_to "Custom only",
-                  objects_path(params[:custom] == "1" ? base_params.except(:custom) : base_params.merge(custom: "1")),
-                  class: (params[:custom] == "1" ? chip_active : chip_inactive) %>
-      <%= link_to "Has PII",
-                  objects_path(params[:sensitivity] == "pii" ? base_params.except(:sensitivity) : base_params.merge(sensitivity: "pii")),
-                  class: (params[:sensitivity] == "pii" ? chip_active : chip_inactive) %>
-      <%= link_to "Has Financial",
-                  objects_path(params[:sensitivity] == "financial" ? base_params.except(:sensitivity) : base_params.merge(sensitivity: "financial")),
-                  class: (params[:sensitivity] == "financial" ? chip_active : chip_inactive) %>
-      <%= link_to "Has any sensitive",
-                  objects_path(params[:sensitivity] == "any" ? base_params.except(:sensitivity) : base_params.merge(sensitivity: "any")),
-                  class: (params[:sensitivity] == "any" ? chip_active : chip_inactive) %>
-      <span class="text-slate-500 ml-2">Min fields:</span>
-      <% [10, 50, 100].each do |n| %>
-        <%= link_to "≥ #{n}",
-                    objects_path(params[:min_fields].to_i == n ? base_params.except(:min_fields) : base_params.merge(min_fields: n)),
-                    class: (params[:min_fields].to_i == n ? chip_active : chip_inactive) %>
-      <% end %>
+    <div class="flex items-start flex-wrap gap-3 pt-3 border-t border-slate-100">
+      <span class="eyebrow pt-1.5">Filters</span>
+      <div class="flex flex-wrap gap-1.5">
+        <%= link_to "Custom only",
+                    objects_path(params[:custom] == "1" ? base_params.except(:custom) : base_params.merge(custom: "1")),
+                    class: (params[:custom] == "1" ? "chip-active" : "chip") %>
+        <%= link_to "Has PII",
+                    objects_path(params[:sensitivity] == "pii" ? base_params.except(:sensitivity) : base_params.merge(sensitivity: "pii")),
+                    class: (params[:sensitivity] == "pii" ? "chip-active" : "chip") %>
+        <%= link_to "Has Financial",
+                    objects_path(params[:sensitivity] == "financial" ? base_params.except(:sensitivity) : base_params.merge(sensitivity: "financial")),
+                    class: (params[:sensitivity] == "financial" ? "chip-active" : "chip") %>
+        <%= link_to "Any sensitive",
+                    objects_path(params[:sensitivity] == "any" ? base_params.except(:sensitivity) : base_params.merge(sensitivity: "any")),
+                    class: (params[:sensitivity] == "any" ? "chip-active" : "chip") %>
+      </div>
+      <span class="eyebrow pt-1.5 ml-2">Min fields</span>
+      <div class="flex flex-wrap gap-1.5">
+        <% [10, 50, 100].each do |n| %>
+          <%= link_to "≥ #{n}",
+                      objects_path(params[:min_fields].to_i == n ? base_params.except(:min_fields) : base_params.merge(min_fields: n)),
+                      class: (params[:min_fields].to_i == n ? "chip-active" : "chip") %>
+        <% end %>
+      </div>
       <% if base_params.except(:run, :q).any? %>
-        <%= link_to "× clear filters",
+        <%= link_to "× Clear filters",
                     objects_path(run: @run.id, q: params[:q]),
-                    class: "text-xs text-rose-600 hover:text-rose-800 ml-2 underline" %>
+                    class: "text-xs font-medium text-rose-600 hover:text-rose-700 ml-auto self-center" %>
       <% end %>
     </div>
 
-    <p class="text-xs text-slate-500"><%= pluralize(@sobjects.size, "object") %> shown</p>
+    <p class="text-xs text-slate-500 pt-1"><span class="font-medium text-slate-700"><%= @sobjects.size %></span> <%= "object".pluralize(@sobjects.size) %> shown</p>
   </div>
 
-  <div class="overflow-hidden rounded border border-slate-200 bg-white">
-    <table class="min-w-full divide-y divide-slate-200 text-sm" data-controller="sortable-table">
-      <thead class="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
+  <div class="card overflow-hidden">
+    <table class="table-clean" data-controller="sortable-table">
+      <thead>
         <tr>
-          <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="text">API name<span class="sort-indicator"></span></th>
-          <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="text">Label<span class="sort-indicator"></span></th>
-          <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="text">Namespace<span class="sort-indicator"></span></th>
-          <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="number">Fields<span class="sort-indicator"></span></th>
-          <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="text">Custom<span class="sort-indicator"></span></th>
+          <th class="cursor-pointer select-none hover:text-slate-700" data-action="click->sortable-table#sort" data-sort-type="text">API name<span class="sort-indicator"></span></th>
+          <th class="cursor-pointer select-none hover:text-slate-700" data-action="click->sortable-table#sort" data-sort-type="text">Label<span class="sort-indicator"></span></th>
+          <th class="cursor-pointer select-none hover:text-slate-700" data-action="click->sortable-table#sort" data-sort-type="text">Namespace<span class="sort-indicator"></span></th>
+          <th class="cursor-pointer select-none hover:text-slate-700 text-right" data-action="click->sortable-table#sort" data-sort-type="number">Fields<span class="sort-indicator"></span></th>
+          <th class="cursor-pointer select-none hover:text-slate-700" data-action="click->sortable-table#sort" data-sort-type="text">Type<span class="sort-indicator"></span></th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-slate-100" data-sortable-table-target="body">
+      <tbody data-sortable-table-target="body">
         <% @sobjects.each do |so| %>
           <% frame_id = dom_id(so, :fields) %>
           <tr data-field-name="<%= so.api_name %>"
               data-controller="expandable"
               data-expandable-frame-id-value="<%= frame_id %>"
               data-expandable-frame-url-value="<%= fields_object_path(so.api_name, run: @run.id) %>">
-            <td class="px-3 py-2" data-sort-value="<%= so.api_name %>">
-              <button type="button"
-                      data-action="click->expandable#toggle"
-                      class="mr-2 inline-block w-4 text-slate-500 hover:text-slate-900"
-                      aria-label="Expand fields"
-                      title="Show fields inline">
-                <span data-expandable-target="chevron">▸</span>
-              </button>
-              <%= link_to so.api_name, object_path(so.api_name, run: @run.id), class: "font-mono text-blue-700 underline" %>
+            <td data-sort-value="<%= so.api_name %>">
+              <div class="flex items-center gap-2">
+                <button type="button"
+                        data-action="click->expandable#toggle"
+                        class="inline-flex w-5 h-5 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                        aria-label="Expand fields"
+                        title="Show fields inline">
+                  <span data-expandable-target="chevron" class="text-[10px]">▸</span>
+                </button>
+                <%= link_to so.api_name, object_path(so.api_name, run: @run.id), class: "font-mono text-sm font-medium text-blue-600 hover:text-blue-700" %>
+              </div>
             </td>
-            <td class="px-3 py-2 text-slate-700"><%= so.label %></td>
-            <td class="px-3 py-2 text-slate-700"><%= so.namespace_prefix.presence || "standard" %></td>
-            <td class="px-3 py-2 text-slate-700" data-sort-value="<%= @sfield_counts[so.id] || 0 %>"><%= @sfield_counts[so.id] || 0 %></td>
-            <td class="px-3 py-2 text-slate-700"><%= so.custom ? "custom" : "standard" %></td>
+            <td class="text-slate-700"><%= so.label %></td>
+            <td><span class="badge-neutral"><%= so.namespace_prefix.presence || "standard" %></span></td>
+            <td class="text-right tabular-nums font-medium text-slate-900" data-sort-value="<%= @sfield_counts[so.id] || 0 %>"><%= @sfield_counts[so.id] || 0 %></td>
+            <td>
+              <% if so.custom %>
+                <span class="badge-info">custom</span>
+              <% else %>
+                <span class="text-xs text-slate-500">standard</span>
+              <% end %>
+            </td>
           </tr>
-          <tr id="<%= frame_id %>-row" class="hidden" data-detail-for="<%= so.api_name %>">
+          <tr id="<%= frame_id %>-row" hidden data-detail-for="<%= so.api_name %>">
             <td colspan="5" class="p-0 border-0">
               <%# Frame starts without src — expandable_controller sets src on first toggle %>
               <%= turbo_frame_tag frame_id do %>
-                <div class="bg-slate-50 px-4 py-3 text-xs text-slate-500">Loading fields…</div>
+                <div class="bg-slate-50/70 px-5 py-3 text-xs text-slate-500">Loading fields…</div>
               <% end %>
             </td>
           </tr>

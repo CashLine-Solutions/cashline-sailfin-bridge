@@ -1,0 +1,53 @@
+<%# CashLine logo. Renders the PNG at app/assets/images/cashline-logo.png
+    when present (recommended — pixel-perfect brand match). Falls back to
+    an inline-SVG approximation so the chrome is never empty during a
+    fresh checkout.
+
+    Locals:
+      size_class: Tailwind sizing classes for the rendered logo
+                  (default "h-7 w-auto" — suits the top nav).
+      with_wordmark: true (default) renders the full lockup with text;
+                  false renders just the chevron-mark icon. %>
+<% size_class    ||= local_assigns[:size_class]    || "h-7 w-auto" %>
+<% with_wordmark = local_assigns.fetch(:with_wordmark, true) %>
+<%# Look for the brand asset under any common image extension so it can
+    be swapped out without touching this partial. First-match wins. %>
+<% logo_filename = %w[svg png webp gif jpg jpeg].lazy
+                    .map { |ext| "cashline-logo.#{ext}" }
+                    .find { |name| Rails.root.join("app/assets/images", name).exist? } %>
+
+<% if logo_filename %>
+  <%= image_tag logo_filename, class: size_class, alt: "CashLine" %>
+<% elsif with_wordmark %>
+  <%# Full lockup — chevron mark + "CashLine" wordmark. Viewbox sized so
+      the lockup fills the available height naturally. %>
+  <svg viewBox="0 0 220 60" xmlns="http://www.w3.org/2000/svg" class="<%= size_class %>" role="img" aria-label="CashLine">
+    <%# Chevron mark: three stacked arrows in a light → dark green ramp,
+        with a $ glyph centred over them. %>
+    <g transform="translate(2, 4)">
+      <path d="M0 30 L24 6 L48 30 H36 L24 16 L12 30 Z" fill="#86efac"/>
+      <path d="M0 40 L24 16 L48 40 H36 L24 26 L12 40 Z" fill="#22c55e"/>
+      <path d="M0 50 L24 26 L48 50 H36 L24 36 L12 50 Z" fill="#15803d"/>
+      <text x="24" y="44" text-anchor="middle"
+            font-family="Georgia, 'Times New Roman', serif"
+            font-weight="700" font-size="20" fill="#ffffff">$</text>
+    </g>
+    <text x="56" y="44"
+          font-family="Georgia, 'Times New Roman', serif"
+          font-size="32" font-weight="600" letter-spacing="-0.5">
+      <tspan fill="#22c55e">Cash</tspan><tspan fill="#1f2937">Line</tspan>
+    </text>
+  </svg>
+<% else %>
+  <%# Mark only — for tight spaces (avatars, favicons, etc.) %>
+  <svg viewBox="0 0 52 56" xmlns="http://www.w3.org/2000/svg" class="<%= size_class %>" role="img" aria-label="CashLine">
+    <g transform="translate(2, 2)">
+      <path d="M0 30 L24 6 L48 30 H36 L24 16 L12 30 Z" fill="#86efac"/>
+      <path d="M0 40 L24 16 L48 40 H36 L24 26 L12 40 Z" fill="#22c55e"/>
+      <path d="M0 50 L24 26 L48 50 H36 L24 36 L12 50 Z" fill="#15803d"/>
+      <text x="24" y="44" text-anchor="middle"
+            font-family="Georgia, 'Times New Roman', serif"
+            font-weight="700" font-size="20" fill="#ffffff">$</text>
+    </g>
+  </svg>
+<% end %>

@@ -1,5 +1,10 @@
 <% content_for(:title, "Run #{@run.directory_token}") %>
-<nav class="text-sm text-slate-600 mb-3"><%= link_to "Runs", runs_path, class: "underline" %> / <span class="font-mono"><%= @run.directory_token %></span></nav>
+
+<nav class="breadcrumb mb-3">
+  <%= link_to "Runs", runs_path %>
+  <span class="mx-1 text-slate-300">/</span>
+  <span class="font-mono text-slate-700"><%= @run.directory_token %></span>
+</nav>
 
 <%= turbo_stream_from [@run, Current.user] if Current.user %>
 <%= render "panel", run: @run %>

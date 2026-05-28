@@ -1,13 +1,20 @@
 <%# Cross-nav between report pages. The active tab is highlighted; pass
     `active:` as the action name (e.g., "hub_orphan", "unused_fields"). %>
-<nav class="mb-4 flex items-center gap-2 text-xs">
-  <% tab_active = "rounded bg-slate-900 text-white px-3 py-1 font-medium" %>
-  <% tab_inactive = "rounded border border-slate-300 text-slate-700 hover:border-slate-500 px-3 py-1" %>
+<nav class="mb-6 flex items-center gap-1 border-b border-slate-200" aria-label="Reports">
   <% [
     [ "Hub / orphan",  reports_hub_orphan_path,    "hub_orphan" ],
     [ "Unused fields", reports_unused_fields_path, "unused_fields" ],
-    [ "Mapping order", reports_mapping_order_path, "mapping_order" ]
+    [ "Mapping order", reports_mapping_order_path, "mapping_order" ],
+    [ "Picklists",     reports_picklists_path,     "picklists" ],
+    [ "Record types",  reports_record_types_path,  "record_types" ]
   ].each do |label, path, action| %>
-    <%= link_to label, path, class: (active == action ? tab_active : tab_inactive) %>
+    <% is_active = (active == action) %>
+    <%= link_to path,
+          class: "relative px-3 py-2 text-sm font-medium transition-colors #{is_active ? 'text-slate-900' : 'text-slate-500 hover:text-slate-900'}" do %>
+      <%= label %>
+      <% if is_active %>
+        <span class="absolute inset-x-3 -bottom-px h-0.5 bg-slate-900 rounded-full"></span>
+      <% end %>
+    <% end %>
   <% end %>
 </nav>

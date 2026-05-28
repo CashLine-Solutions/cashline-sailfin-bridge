@@ -1,39 +1,56 @@
 <% content_for(:title, "Unused fields") %>
+
+<%= render "shared/page_header",
+      eyebrow: "Report",
+      title: "Unused fields",
+      subtitle: "Fields with null rate at or above the threshold. Candidates for trimming during ontology design." do %>
+  <% if @run %><%= link_to "Download CSV", reports_unused_fields_path(run: @run.id, threshold: @threshold, format: :csv), class: "btn-secondary btn-sm" %><% end %>
+<% end %>
+
 <%= render "tabs", active: "unused_fields" %>
-<div class="flex items-center justify-between mb-4">
-  <div>
-    <h1 class="text-2xl font-semibold">Unused fields</h1>
-    <p class="text-sm text-slate-600">Fields with null rate at or above the threshold.</p>
-  </div>
-  <% if @run %><%= link_to "Download CSV", reports_unused_fields_path(run: @run.id, threshold: @threshold, format: :csv), class: "rounded bg-slate-200 px-3 py-2 text-sm" %><% end %>
-</div>
 
 <% if @run.nil? %>
-  <p class="text-slate-700">No active run. <%= link_to "Pick one", runs_path, class: "text-blue-700 underline" %>.</p>
+  <div class="empty-state">
+    <h2>No active run</h2>
+    <p>Select a run to compute the report.</p>
+    <div class="mt-4"><%= link_to "Pick a run", runs_path, class: "btn-primary" %></div>
+  </div>
 <% else %>
-  <%= form_with url: reports_unused_fields_path, method: :get, local: true, class: "mb-4 flex items-center gap-3 text-sm" do %>
+  <%= form_with url: reports_unused_fields_path, method: :get, local: true, class: "card card-body mb-6 flex flex-wrap items-end gap-3" do %>
     <%= hidden_field_tag :run, @run.id %>
-    <%= label_tag :threshold, "Null-rate threshold" %>
-    <%= number_field_tag :threshold, @threshold, step: 0.01, min: 0, max: 1, class: "w-24 rounded border-slate-300" %>
-    <%= submit_tag "Apply", class: "rounded bg-slate-200 px-3 py-1.5" %>
+    <div>
+      <%= label_tag :threshold, "Null-rate threshold", class: "label" %>
+      <%= number_field_tag :threshold, @threshold, step: 0.01, min: 0, max: 1, class: "input w-32" %>
+    </div>
+    <%= submit_tag "Apply", class: "btn-secondary btn-sm" %>
+    <p class="text-xs text-slate-500 ml-auto self-center">Currently showing fields with ≥ <span class="font-medium text-slate-700"><%= (@threshold.to_f * 100).round %>%</span> null rate.</p>
   <% end %>
 
   <% if @rows.empty? %>
-    <p class="text-slate-700">No fields meet the threshold.</p>
+    <div class="empty-state">
+      <h2>Nothing to flag</h2>
+      <p>No fields meet the current threshold.</p>
+    </div>
   <% else %>
-    <div class="overflow-x-auto rounded border border-slate-200 bg-white">
-      <table class="min-w-full divide-y divide-slate-200 text-sm">
-        <thead class="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
-          <tr><th class="px-3 py-2">Object</th><th class="px-3 py-2">Field</th><th class="px-3 py-2">Type</th><th class="px-3 py-2">Sensitivity</th><th class="px-3 py-2">Null %</th></tr>
+    <div class="card overflow-hidden">
+      <table class="table-clean">
+        <thead>
+          <tr>
+            <th>Object</th>
+            <th>Field</th>
+            <th>Type</th>
+            <th>Sensitivity</th>
+            <th class="text-right">Null %</th>
+          </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">
+        <tbody>
           <% @rows.each do |r| %>
             <tr>
-              <td class="px-3 py-2"><%= link_to r[:sobject], object_path(r[:sobject], run: @run.id), class: "font-mono text-blue-700 underline" %></td>
-              <td class="px-3 py-2 font-mono text-xs"><%= r[:field] %></td>
-              <td class="px-3 py-2 text-slate-700"><%= r[:type] %></td>
-              <td class="px-3 py-2 text-slate-700"><%= sensitivity_label(r[:sensitivity]) %></td>
-              <td class="px-3 py-2 text-slate-700"><%= (r[:null_rate].to_f * 100).round(2) %>%</td>
+              <td><%= link_to r[:sobject], object_path(r[:sobject], run: @run.id), class: "font-mono text-sm font-medium text-blue-600 hover:text-blue-700" %></td>
+              <td class="font-mono text-xs text-slate-700"><%= r[:field] %></td>
+              <td><span class="badge-neutral"><%= r[:type] %></span></td>
+              <td class="text-slate-600 text-sm"><%= sensitivity_label(r[:sensitivity]) %></td>
+              <td class="text-right tabular-nums font-medium text-slate-900"><%= (r[:null_rate].to_f * 100).round(1) %>%</td>
             </tr>
           <% end %>
         </tbody>

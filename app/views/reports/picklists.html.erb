@@ -1,0 +1,77 @@
+<% content_for(:title, "Picklists") %>
+
+<%= render "shared/page_header",
+      eyebrow: "Report",
+      title: "Picklists",
+      subtitle: "Every picklist and multipicklist field in this run, ordered by value count. Use as the inventory when sizing controlled-vocabulary translation work for the ontology." do %>
+  <% if @run %><%= link_to "Download CSV", reports_picklists_path(run: @run.id, format: :csv), class: "btn-secondary btn-sm" %><% end %>
+<% end %>
+
+<%= render "tabs", active: "picklists" %>
+
+<% if @run.nil? %>
+  <div class="empty-state">
+    <h2>No active run</h2>
+    <p>Select a run to compute the report.</p>
+    <div class="mt-4"><%= link_to "Pick a run", runs_path, class: "btn-primary" %></div>
+  </div>
+<% elsif @rows.empty? %>
+  <div class="empty-state">
+    <h2>No picklist fields</h2>
+    <p>This run has no picklist or multipicklist fields.</p>
+  </div>
+<% else %>
+  <div class="card card-body mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+    <div>
+      <p class="eyebrow">Picklist fields</p>
+      <p class="text-2xl font-semibold text-slate-900 tabular-nums"><%= @field_count %></p>
+    </div>
+    <div>
+      <p class="eyebrow">Total active values</p>
+      <p class="text-2xl font-semibold text-slate-900 tabular-nums"><%= number_with_delimiter(@value_total) %></p>
+    </div>
+    <div>
+      <p class="eyebrow">Avg values per field</p>
+      <p class="text-2xl font-semibold text-slate-900 tabular-nums"><%= (@value_total.to_f / @field_count).round(1) %></p>
+    </div>
+  </div>
+
+  <div class="card overflow-hidden">
+    <table class="table-clean" data-controller="sortable-table">
+      <thead>
+        <tr>
+          <th class="cursor-pointer select-none hover:text-slate-700" data-action="click->sortable-table#sort" data-sort-type="text">Object<span class="sort-indicator"></span></th>
+          <th class="cursor-pointer select-none hover:text-slate-700" data-action="click->sortable-table#sort" data-sort-type="text">Field<span class="sort-indicator"></span></th>
+          <th class="cursor-pointer select-none hover:text-slate-700" data-action="click->sortable-table#sort" data-sort-type="text">Type<span class="sort-indicator"></span></th>
+          <th class="cursor-pointer select-none hover:text-slate-700 text-right" data-action="click->sortable-table#sort" data-sort-type="number">Active values<span class="sort-indicator"></span></th>
+          <th>Preview (first 8 active values)</th>
+        </tr>
+      </thead>
+      <tbody data-sortable-table-target="body">
+        <% @rows.each do |r| %>
+          <% values = @previews[r[:sfield_id]] || [] %>
+          <tr>
+            <td data-sort-value="<%= r[:object_name] %>">
+              <%= link_to r[:object_name], object_path(r[:object_name], run: @run.id), class: "font-mono text-sm font-medium text-blue-600 hover:text-blue-700" %>
+            </td>
+            <td class="font-mono text-xs text-slate-700" data-sort-value="<%= r[:field_name] %>">
+              <%= link_to r[:field_name], field_object_path(r[:object_name], field_name: r[:field_name], run: @run.id), class: "hover:text-slate-900" %>
+            </td>
+            <td data-sort-value="<%= r[:data_type] %>"><span class="badge-neutral"><%= r[:data_type] %></span></td>
+            <td class="text-right tabular-nums font-medium text-slate-900" data-sort-value="<%= r[:active_value_count] %>"><%= r[:active_value_count] %></td>
+            <td class="text-xs text-slate-600">
+              <% if values.empty? %>
+                <span class="text-slate-300">—</span>
+              <% else %>
+                <%# Picklist values come from Salesforce — escape via content_tag + safe_join,
+                    never .html_safe on raw strings. Matches the hygiene policy in diffs/show. %>
+                <%= safe_join(values.first(8).map { |v| content_tag(:code, v, class: "code-inline mr-1") }) %>
+                <% if values.size > 8 %><span class="text-slate-400">+<%= values.size - 8 %> more</span><% end %>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

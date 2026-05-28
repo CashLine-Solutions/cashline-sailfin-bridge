@@ -1,0 +1,76 @@
+<% content_for(:title, "Record types") %>
+
+<%= render "shared/page_header",
+      eyebrow: "Report",
+      title: "Record types",
+      subtitle: "Every real record type (subtype) in this run, with the picklist values each subtype scopes. The Master pseudo record type is omitted. Use this when modeling polymorphic objects in the ontology." do %>
+  <% if @run %><%= link_to "Download CSV", reports_record_types_path(run: @run.id, format: :csv), class: "btn-secondary btn-sm" %><% end %>
+<% end %>
+
+<%= render "tabs", active: "record_types" %>
+
+<% if @run.nil? %>
+  <div class="empty-state">
+    <h2>No active run</h2>
+    <p>Select a run to compute the report.</p>
+    <div class="mt-4"><%= link_to "Pick a run", runs_path, class: "btn-primary" %></div>
+  </div>
+<% elsif @rows.empty? %>
+  <div class="empty-state">
+    <h2>No record types</h2>
+    <p>No object in this run has a non-Master record type. Record types are captured from the describe/layouts endpoint, so a run extracted before that support was added will show nothing here — re-extract to populate it.</p>
+  </div>
+<% else %>
+  <div class="card card-body mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+    <div>
+      <p class="eyebrow">Objects with record types</p>
+      <p class="text-2xl font-semibold text-slate-900 tabular-nums"><%= @object_count %></p>
+    </div>
+    <div>
+      <p class="eyebrow">Record types</p>
+      <p class="text-2xl font-semibold text-slate-900 tabular-nums"><%= @record_type_count %></p>
+    </div>
+    <div>
+      <p class="eyebrow">Avg per object</p>
+      <p class="text-2xl font-semibold text-slate-900 tabular-nums"><%= (@record_type_count.to_f / @object_count).round(1) %></p>
+    </div>
+  </div>
+
+  <div class="card overflow-hidden">
+    <table class="table-clean" data-controller="sortable-table">
+      <thead>
+        <tr>
+          <th class="cursor-pointer select-none hover:text-slate-700" data-action="click->sortable-table#sort" data-sort-type="text">Object<span class="sort-indicator"></span></th>
+          <th class="cursor-pointer select-none hover:text-slate-700" data-action="click->sortable-table#sort" data-sort-type="text">Record type<span class="sort-indicator"></span></th>
+          <th class="cursor-pointer select-none hover:text-slate-700" data-action="click->sortable-table#sort" data-sort-type="text">Developer name<span class="sort-indicator"></span></th>
+          <th class="cursor-pointer select-none hover:text-slate-700" data-action="click->sortable-table#sort" data-sort-type="text">Default<span class="sort-indicator"></span></th>
+          <th class="cursor-pointer select-none hover:text-slate-700 text-right" data-action="click->sortable-table#sort" data-sort-type="number">Scoped picklists<span class="sort-indicator"></span></th>
+          <th>Picklist fields (value count)</th>
+        </tr>
+      </thead>
+      <tbody data-sortable-table-target="body">
+        <% @rows.each do |r| %>
+          <tr>
+            <td data-sort-value="<%= r[:object_name] %>">
+              <%= link_to r[:object_name], object_path(r[:object_name], run: @run.id), class: "font-mono text-sm font-medium text-blue-600 hover:text-blue-700" %>
+            </td>
+            <td class="text-sm text-slate-800" data-sort-value="<%= r[:label] %>"><%= r[:label] %></td>
+            <td class="font-mono text-xs text-slate-600" data-sort-value="<%= r[:developer_name] %>"><%= r[:developer_name] %></td>
+            <td data-sort-value="<%= r[:default_mapping] ? 1 : 0 %>">
+              <% if r[:default_mapping] %><span class="badge-neutral">default</span><% else %><span class="text-slate-300">—</span><% end %>
+            </td>
+            <td class="text-right tabular-nums font-medium text-slate-900" data-sort-value="<%= r[:scoped_field_count] %>"><%= r[:scoped_field_count] %></td>
+            <td class="text-xs text-slate-600">
+              <% if r[:scoped_picklists].empty? %>
+                <span class="text-slate-300">—</span>
+              <% else %>
+                <%# Field names come from Salesforce — escape via content_tag + safe_join. %>
+                <%= safe_join(r[:scoped_picklists].map { |field, vals| content_tag(:code, "#{field} (#{vals.size})", class: "code-inline mr-1") }) %>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>
