@@ -1,0 +1,60 @@
+<%# Picklist value-level mapping sub-table. Locals: mapping_entry,
+    source_values (Array<Hash>), enum_values (Array<String>), existing
+    ({source_value => MappingValueEntry}), can_edit, can_view_values. %>
+<div class="bg-slate-50 px-4 py-3" data-controller="value-map">
+  <% unless can_view_values %>
+    <p class="text-xs italic text-slate-500">Picklist values are hidden for this sensitive field. Requires sensitive_data_access.</p>
+  <% else %>
+    <div class="mb-2 text-xs text-slate-500">
+      Map each source value of <span class="font-mono"><%= mapping_entry.source_field&.api_name %></span>
+      onto <span class="font-mono"><%= mapping_entry.target_class %>#<%= mapping_entry.target_field %></span>.
+    </div>
+
+    <% if source_values.empty? %>
+      <p class="text-xs text-slate-500">No declared or observed picklist values for this field.</p>
+    <% else %>
+      <table class="min-w-full text-xs">
+        <thead class="text-left text-slate-500">
+          <tr>
+            <th class="px-2 py-1">Source value</th>
+            <th class="px-2 py-1">In-data frequency</th>
+            <th class="px-2 py-1">Target enum value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% source_values.each do |sv| %>
+            <% current = existing[sv[:value]] %>
+            <tr class="<%= 'opacity-50' if sv[:count].nil? %>">
+              <td class="px-2 py-1 font-mono">
+                <%= sv[:value].presence || "(blank)" %>
+                <% unless sv[:declared] %><span class="ml-1 rounded bg-amber-100 text-amber-900 px-1 text-[10px]" title="Observed in data but not a declared picklist value">undeclared</span><% end %>
+                <% if sv[:declared] && sv[:active] == false %><span class="ml-1 rounded bg-slate-200 text-slate-600 px-1 text-[10px]">inactive</span><% end %>
+              </td>
+              <td class="px-2 py-1 text-slate-600"><%= sv[:count] ? number_with_delimiter(sv[:count]) : "—" %></td>
+              <td class="px-2 py-1">
+                <% if can_edit %>
+                  <%= form_with url: mapping_values_path(mapping_entry), method: :post,
+                        data: { turbo_frame: "mapping_entry_#{mapping_entry.id}_values" } do %>
+                    <%= hidden_field_tag "mapping_value_entry[source_value]", sv[:value] %>
+                    <select name="mapping_value_entry[target_enum_value]"
+                            class="rounded border-slate-300 text-xs"
+                            data-action="change->value-map#submit">
+                      <option value=""></option>
+                      <% enum_values.each do |ev| %>
+                        <option value="<%= ev %>" <%= "selected" if current&.target_enum_value == ev %>><%= ev %></option>
+                      <% end %>
+                      <option value="<%= MappingValueEntry::DROP %>" <%= "selected" if current&.dropped? %>>(drop)</option>
+                      <option value="<%= MappingValueEntry::DERIVE %>" <%= "selected" if current&.derived? %>>(derive)</option>
+                    </select>
+                  <% end %>
+                <% else %>
+                  <%= current&.target_enum_value || "—" %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+  <% end %>
+</div>

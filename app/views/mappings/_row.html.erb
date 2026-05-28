@@ -1,0 +1,168 @@
+<%# One mapping edge row. Local: row (MappingGridRow), snapshot.
+    Inline-edit controls live in a per-row form (placed in the first cell) and
+    are associated from other cells via the HTML5 form= attribute, so a single
+    submit carries every field. The form auto-submits on change (mapping-target
+    controller on the table). Edit actions are serviced by Unit 7. %>
+<% dom = row.dom_id %>
+<% form_id = "edit_#{dom}" %>
+<% editable = snapshot.present? %>
+<% input_cls = "w-full rounded border-slate-300 text-xs disabled:bg-slate-50 disabled:text-slate-400" %>
+<% value_mappable = row.entry && row.sfield&.picklist? && snapshot&.enum_bearing?(row.entry.target_class, row.entry.target_field) %>
+<tr id="<%= dom %>"
+    class="<%= 'bg-slate-50/60' if row.net_new? %>"
+    data-field-name="<%= dom %>"
+    data-field-type="<%= row.sfield&.data_type %>"
+    data-reviewed="<%= row.reviewed? %>"
+    data-mapping-type="<%= row.mapping_type %>"
+    data-net-new="<%= row.net_new? %>"
+    data-has-target="<%= row.target_label.present? %>"
+    <% if value_mappable %>data-controller="expandable" data-expandable-frame-id-value="<%= dom %>_values" data-expandable-frame-url-value="<%= mapping_values_path(row.entry) %>"<% end %>>
+
+  <td class="px-3 py-2 text-slate-700" data-sort-value="<%= row.data_group_sort_value %>">
+    <%= row.data_group_label %>
+    <% if editable %>
+      <% if row.net_new? || row.entry %>
+        <%= form_with url: mapping_path(row.entry), method: :patch, id: form_id, data: { turbo: true } do %>
+          <%= hidden_field_tag :snapshot, snapshot.id %>
+        <% end %>
+      <% else %>
+        <%= form_with url: mappings_path, method: :post, id: form_id, data: { turbo: true } do %>
+          <%= hidden_field_tag :snapshot, snapshot.id %>
+          <%= hidden_field_tag "mapping_entry[source_field_id]", row.sfield.id %>
+        <% end %>
+      <% end %>
+    <% end %>
+  </td>
+
+  <td class="px-3 py-2 text-slate-700" data-sort-value="<%= row.sobject_name %>">
+    <%= row.sobject_name || content_tag(:span, "(no source)", class: "text-slate-400 italic") %>
+  </td>
+
+  <td class="px-3 py-2 font-mono text-xs" data-sort-value="<%= row.field_name %>">
+    <% if value_mappable %>
+      <button type="button" data-action="click->expandable#toggle"
+              class="mr-1 inline-block w-3 text-slate-400 hover:text-slate-900"
+              aria-label="Map picklist values" title="Map picklist values to target enum">
+        <span data-expandable-target="chevron">▸</span>
+      </button>
+    <% end %>
+    <% if row.sfield %>
+      <%= row.field_name %>
+      <% if row.reviewed_no_home? %>
+        <span class="ml-1 rounded bg-slate-200 text-slate-600 px-1 text-[10px]" title="Reviewed, no cashline home — gap-discovery signal">reviewed · no target</span>
+      <% end %>
+    <% else %>
+      <span class="text-slate-400">—</span>
+    <% end %>
+  </td>
+
+  <% fp = row.field_profile %>
+  <td class="px-3 py-2 text-slate-700" data-sort-value="<%= fp&.null_rate ? (1 - fp.null_rate).round(4) : nil %>">
+    <% if fp&.null_rate %>
+      <%= "#{((1 - fp.null_rate) * 100).round(1)}% pop" %>
+      <span class="text-slate-400">· <%= fp.distinct_count || "—" %> distinct</span>
+    <% else %>—<% end %>
+  </td>
+
+  <td class="px-3 py-2" data-sort-value="<%= row.mapping_type %>">
+    <% if editable %>
+      <select name="mapping_entry[mapping_type]" form="<%= form_id %>" class="<%= input_cls %>"
+              data-action="change->mapping-target#submit">
+        <option value=""></option>
+        <% MappingEntry::MAPPING_TYPES.each do |mt| %>
+          <option value="<%= mt %>" <%= "selected" if row.mapping_type == mt %>><%= mt %></option>
+        <% end %>
+      </select>
+    <% else %>
+      <%= row.mapping_type || "—" %>
+    <% end %>
+  </td>
+
+  <td class="px-3 py-2">
+    <% if editable %>
+      <input type="text" list="cashline-targets" name="mapping_entry[target]" form="<%= form_id %>"
+             value="<%= row.target_label %>" placeholder="Class#field"
+             class="<%= input_cls %> font-mono"
+             data-action="change->mapping-target#submit">
+      <% if row.entry && (n = row.entry.also_mapped_from_count) > 0 %>
+        <span class="block text-[10px] text-amber-700" title="This cashline target is also mapped from other Sailfin fields (intentional N:1)">also mapped from <%= n %></span>
+      <% end %>
+    <% else %>
+      <span class="font-mono text-xs"><%= row.target_label || "—" %></span>
+    <% end %>
+  </td>
+
+  <td class="px-3 py-2" data-sort-value="<%= row.confidence %>">
+    <% if editable %>
+      <select name="mapping_entry[confidence]" form="<%= form_id %>" class="<%= input_cls %>"
+              data-action="change->mapping-target#submit">
+        <option value=""></option>
+        <% MappingEntry::CONFIDENCES.each do |c| %>
+          <option value="<%= c %>" <%= "selected" if row.confidence == c %>><%= c %></option>
+        <% end %>
+      </select>
+    <% else %>
+      <%= row.confidence || "—" %>
+    <% end %>
+  </td>
+
+  <td class="px-3 py-2" data-sort-value="<%= row.reviewed? ? 1 : 0 %>">
+    <% if editable %>
+      <input type="hidden" name="mapping_entry[reviewed]" value="0" form="<%= form_id %>">
+      <input type="checkbox" name="mapping_entry[reviewed]" value="1" form="<%= form_id %>"
+             <%= "checked" if row.reviewed? %>
+             data-action="change->mapping-target#submit">
+    <% else %>
+      <%= row.reviewed? ? "✓" : "—" %>
+    <% end %>
+  </td>
+
+  <td class="px-3 py-2">
+    <% if editable %>
+      <input type="text" name="mapping_entry[transformation_note]" form="<%= form_id %>"
+             value="<%= row.entry&.transformation_note %>" placeholder="note"
+             class="<%= input_cls %>"
+             data-action="change->mapping-target#submit">
+    <% else %>
+      <%= row.entry&.transformation_note %>
+    <% end %>
+  </td>
+
+  <td class="px-3 py-2">
+    <%# Suggest-button slot (Unit 9). Suppressed on already-reviewed rows. %>
+    <% proposals = row.sfield ? Array(local_assigns.fetch(:proposals_by_field, {})[row.sfield.id]) : [] %>
+    <% rejected = row.sfield ? Array(local_assigns.fetch(:rejected_proposals_by_field, {})[row.sfield.id]) : [] %>
+    <% top = proposals.first unless row.reviewed? %>
+    <% if top %>
+      <div class="flex flex-col gap-1">
+        <span class="font-mono text-[11px] text-slate-600" title="score <%= top.score %>"><%= top.target_label %></span>
+        <div class="flex gap-1">
+          <%= button_to "Accept", accept_mapping_proposal_path(top), method: :post,
+                class: "rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] px-2 py-0.5",
+                form: { data: { turbo: false } } %>
+          <%= button_to "Reject", reject_mapping_proposal_path(top), method: :post,
+                class: "rounded border border-slate-300 text-slate-600 hover:border-slate-500 text-[10px] px-2 py-0.5",
+                form: { data: { turbo: false } } %>
+        </div>
+      </div>
+    <% elsif rejected.any? %>
+      <div class="text-[10px] text-slate-400">
+        suppressed: <span class="font-mono"><%= rejected.first.target_label %></span>
+        <%= button_to "restore", unreject_mapping_proposal_path(rejected.first), method: :post,
+              class: "underline", form: { class: "inline", data: { turbo: false } } %>
+      </div>
+    <% else %>
+      <span class="text-[10px] text-slate-300">—</span>
+    <% end %>
+  </td>
+</tr>
+<% if value_mappable %>
+  <tr id="<%= dom %>_values-row" class="hidden" data-detail-for="<%= dom %>">
+    <td colspan="10" class="p-0 border-0">
+      <%# expandable sets the frame src on first toggle (lazy-load). %>
+      <%= turbo_frame_tag "#{dom}_values" do %>
+        <div class="bg-slate-50 px-4 py-2 text-xs text-slate-500">Loading values…</div>
+      <% end %>
+    </td>
+  </tr>
+<% end %>

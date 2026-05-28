@@ -9,6 +9,20 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+--
+-- Name: vector; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION vector; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION vector IS 'vector data type and ivfflat and hnsw access methods';
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -23,6 +37,39 @@ CREATE TABLE public.ar_internal_metadata (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL
 );
+
+
+--
+-- Name: cashline_snapshots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cashline_snapshots (
+    id bigint NOT NULL,
+    loaded_at timestamp(6) without time zone NOT NULL,
+    sha256 character varying NOT NULL,
+    schema_json jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: cashline_snapshots_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.cashline_snapshots_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cashline_snapshots_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.cashline_snapshots_id_seq OWNED BY public.cashline_snapshots.id;
 
 
 --
@@ -89,6 +136,70 @@ CREATE SEQUENCE public.clusters_id_seq
 --
 
 ALTER SEQUENCE public.clusters_id_seq OWNED BY public.clusters.id;
+
+
+--
+-- Name: embedding_caches; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.embedding_caches (
+    id bigint NOT NULL,
+    content_sha256 character varying NOT NULL,
+    embedding public.vector(1536) NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: embedding_caches_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.embedding_caches_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: embedding_caches_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.embedding_caches_id_seq OWNED BY public.embedding_caches.id;
+
+
+--
+-- Name: embedding_sources; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.embedding_sources (
+    id bigint NOT NULL,
+    sfield_id bigint NOT NULL,
+    content_sha256 character varying NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: embedding_sources_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.embedding_sources_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: embedding_sources_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.embedding_sources_id_seq OWNED BY public.embedding_sources.id;
 
 
 --
@@ -289,6 +400,118 @@ CREATE TABLE public.good_jobs (
 
 
 --
+-- Name: mapping_entries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mapping_entries (
+    id bigint NOT NULL,
+    cashline_snapshot_id bigint NOT NULL,
+    source_field_id bigint,
+    updated_by_id bigint,
+    target_class character varying,
+    target_field character varying,
+    mapping_type character varying,
+    confidence character varying,
+    reviewed boolean DEFAULT false NOT NULL,
+    transformation_note text,
+    source_citation text,
+    needs_crosswalk boolean DEFAULT false NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: mapping_entries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.mapping_entries_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: mapping_entries_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.mapping_entries_id_seq OWNED BY public.mapping_entries.id;
+
+
+--
+-- Name: mapping_proposals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mapping_proposals (
+    id bigint NOT NULL,
+    source_field_id bigint NOT NULL,
+    cashline_snapshot_id bigint NOT NULL,
+    target_class character varying NOT NULL,
+    target_field character varying NOT NULL,
+    score double precision DEFAULT 0.0 NOT NULL,
+    signals jsonb DEFAULT '{}'::jsonb NOT NULL,
+    state character varying DEFAULT 'open'::character varying NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: mapping_proposals_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.mapping_proposals_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: mapping_proposals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.mapping_proposals_id_seq OWNED BY public.mapping_proposals.id;
+
+
+--
+-- Name: mapping_value_entries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mapping_value_entries (
+    id bigint NOT NULL,
+    mapping_entry_id bigint NOT NULL,
+    source_value character varying NOT NULL,
+    target_enum_value character varying,
+    notes text,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: mapping_value_entries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.mapping_value_entries_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: mapping_value_entries_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.mapping_value_entries_id_seq OWNED BY public.mapping_value_entries.id;
+
+
+--
 -- Name: object_profiles; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -431,7 +654,9 @@ CREATE TABLE public.sfields (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     sensitivity character varying DEFAULT 'unknown_sensitivity'::character varying NOT NULL,
-    sensitivity_signals jsonb DEFAULT '[]'::jsonb NOT NULL
+    sensitivity_signals jsonb DEFAULT '[]'::jsonb NOT NULL,
+    compliance_group character varying,
+    security_classification character varying
 );
 
 
@@ -527,6 +752,43 @@ ALTER SEQUENCE public.spicklist_values_id_seq OWNED BY public.spicklist_values.i
 
 
 --
+-- Name: srecord_types; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.srecord_types (
+    id bigint NOT NULL,
+    sobject_id bigint NOT NULL,
+    salesforce_id character varying NOT NULL,
+    developer_name character varying,
+    label character varying,
+    available boolean DEFAULT true NOT NULL,
+    default_mapping boolean DEFAULT false NOT NULL,
+    picklist_values jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: srecord_types_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.srecord_types_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: srecord_types_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.srecord_types_id_seq OWNED BY public.srecord_types.id;
+
+
+--
 -- Name: srelationships; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -600,6 +862,13 @@ ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
 
 --
+-- Name: cashline_snapshots id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cashline_snapshots ALTER COLUMN id SET DEFAULT nextval('public.cashline_snapshots_id_seq'::regclass);
+
+
+--
 -- Name: cluster_assignments id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -614,6 +883,20 @@ ALTER TABLE ONLY public.clusters ALTER COLUMN id SET DEFAULT nextval('public.clu
 
 
 --
+-- Name: embedding_caches id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.embedding_caches ALTER COLUMN id SET DEFAULT nextval('public.embedding_caches_id_seq'::regclass);
+
+
+--
+-- Name: embedding_sources id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.embedding_sources ALTER COLUMN id SET DEFAULT nextval('public.embedding_sources_id_seq'::regclass);
+
+
+--
 -- Name: extraction_runs id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -625,6 +908,27 @@ ALTER TABLE ONLY public.extraction_runs ALTER COLUMN id SET DEFAULT nextval('pub
 --
 
 ALTER TABLE ONLY public.field_profiles ALTER COLUMN id SET DEFAULT nextval('public.field_profiles_id_seq'::regclass);
+
+
+--
+-- Name: mapping_entries id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mapping_entries ALTER COLUMN id SET DEFAULT nextval('public.mapping_entries_id_seq'::regclass);
+
+
+--
+-- Name: mapping_proposals id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mapping_proposals ALTER COLUMN id SET DEFAULT nextval('public.mapping_proposals_id_seq'::regclass);
+
+
+--
+-- Name: mapping_value_entries id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mapping_value_entries ALTER COLUMN id SET DEFAULT nextval('public.mapping_value_entries_id_seq'::regclass);
 
 
 --
@@ -670,6 +974,13 @@ ALTER TABLE ONLY public.spicklist_values ALTER COLUMN id SET DEFAULT nextval('pu
 
 
 --
+-- Name: srecord_types id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.srecord_types ALTER COLUMN id SET DEFAULT nextval('public.srecord_types_id_seq'::regclass);
+
+
+--
 -- Name: srelationships id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -692,6 +1003,14 @@ ALTER TABLE ONLY public.ar_internal_metadata
 
 
 --
+-- Name: cashline_snapshots cashline_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cashline_snapshots
+    ADD CONSTRAINT cashline_snapshots_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: cluster_assignments cluster_assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -705,6 +1024,22 @@ ALTER TABLE ONLY public.cluster_assignments
 
 ALTER TABLE ONLY public.clusters
     ADD CONSTRAINT clusters_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: embedding_caches embedding_caches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.embedding_caches
+    ADD CONSTRAINT embedding_caches_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: embedding_sources embedding_sources_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.embedding_sources
+    ADD CONSTRAINT embedding_sources_pkey PRIMARY KEY (id);
 
 
 --
@@ -764,6 +1099,30 @@ ALTER TABLE ONLY public.good_jobs
 
 
 --
+-- Name: mapping_entries mapping_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mapping_entries
+    ADD CONSTRAINT mapping_entries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mapping_proposals mapping_proposals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mapping_proposals
+    ADD CONSTRAINT mapping_proposals_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mapping_value_entries mapping_value_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mapping_value_entries
+    ADD CONSTRAINT mapping_value_entries_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: object_profiles object_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -820,6 +1179,14 @@ ALTER TABLE ONLY public.spicklist_values
 
 
 --
+-- Name: srecord_types srecord_types_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.srecord_types
+    ADD CONSTRAINT srecord_types_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: srelationships srelationships_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -836,10 +1203,38 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: idx_on_cashline_snapshot_id_target_class_target_fie_701aa660bf; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_on_cashline_snapshot_id_target_class_target_fie_701aa660bf ON public.mapping_entries USING btree (cashline_snapshot_id, target_class, target_field);
+
+
+--
+-- Name: idx_on_mapping_entry_id_source_value_f1873b6212; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_on_mapping_entry_id_source_value_f1873b6212 ON public.mapping_value_entries USING btree (mapping_entry_id, source_value);
+
+
+--
+-- Name: idx_on_source_field_id_target_class_target_field_st_892dcbea46; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_on_source_field_id_target_class_target_field_st_892dcbea46 ON public.mapping_proposals USING btree (source_field_id, target_class, target_field, state);
+
+
+--
 -- Name: idx_srels_run_src_tgt; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_srels_run_src_tgt ON public.srelationships USING btree (extraction_run_id, source_sobject_id, target_sobject_id);
+
+
+--
+-- Name: index_cashline_snapshots_on_loaded_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_cashline_snapshots_on_loaded_at ON public.cashline_snapshots USING btree (loaded_at);
 
 
 --
@@ -882,6 +1277,34 @@ CREATE INDEX index_clusters_on_extraction_run_id ON public.clusters USING btree 
 --
 
 CREATE UNIQUE INDEX index_clusters_on_extraction_run_id_and_name ON public.clusters USING btree (extraction_run_id, name);
+
+
+--
+-- Name: index_embedding_caches_on_content_sha256; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_embedding_caches_on_content_sha256 ON public.embedding_caches USING btree (content_sha256);
+
+
+--
+-- Name: index_embedding_sources_on_content_sha256; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_embedding_sources_on_content_sha256 ON public.embedding_sources USING btree (content_sha256);
+
+
+--
+-- Name: index_embedding_sources_on_sfield_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_embedding_sources_on_sfield_id ON public.embedding_sources USING btree (sfield_id);
+
+
+--
+-- Name: index_embedding_sources_on_sfield_id_and_content_sha256; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_embedding_sources_on_sfield_id_and_content_sha256 ON public.embedding_sources USING btree (sfield_id, content_sha256);
 
 
 --
@@ -1130,6 +1553,76 @@ CREATE INDEX index_good_jobs_on_unfinished_or_errored ON public.good_jobs USING 
 
 
 --
+-- Name: index_mapping_entries_on_cashline_snapshot_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_mapping_entries_on_cashline_snapshot_id ON public.mapping_entries USING btree (cashline_snapshot_id);
+
+
+--
+-- Name: index_mapping_entries_on_null_target; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_mapping_entries_on_null_target ON public.mapping_entries USING btree (cashline_snapshot_id, COALESCE(source_field_id, ('-1'::integer)::bigint)) WHERE (target_class IS NULL);
+
+
+--
+-- Name: index_mapping_entries_on_source_field_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_mapping_entries_on_source_field_id ON public.mapping_entries USING btree (source_field_id);
+
+
+--
+-- Name: index_mapping_entries_on_targeted_edge; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_mapping_entries_on_targeted_edge ON public.mapping_entries USING btree (cashline_snapshot_id, COALESCE(source_field_id, ('-1'::integer)::bigint), target_class, target_field) WHERE (target_class IS NOT NULL);
+
+
+--
+-- Name: index_mapping_entries_on_updated_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_mapping_entries_on_updated_by_id ON public.mapping_entries USING btree (updated_by_id);
+
+
+--
+-- Name: index_mapping_proposals_on_cashline_snapshot_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_mapping_proposals_on_cashline_snapshot_id ON public.mapping_proposals USING btree (cashline_snapshot_id);
+
+
+--
+-- Name: index_mapping_proposals_on_cashline_snapshot_id_and_state; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_mapping_proposals_on_cashline_snapshot_id_and_state ON public.mapping_proposals USING btree (cashline_snapshot_id, state);
+
+
+--
+-- Name: index_mapping_proposals_on_edge; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_mapping_proposals_on_edge ON public.mapping_proposals USING btree (source_field_id, cashline_snapshot_id, target_class, target_field);
+
+
+--
+-- Name: index_mapping_proposals_on_source_field_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_mapping_proposals_on_source_field_id ON public.mapping_proposals USING btree (source_field_id);
+
+
+--
+-- Name: index_mapping_value_entries_on_mapping_entry_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_mapping_value_entries_on_mapping_entry_id ON public.mapping_value_entries USING btree (mapping_entry_id);
+
+
+--
 -- Name: index_object_profiles_on_extraction_run_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1249,6 +1742,20 @@ CREATE UNIQUE INDEX index_spicklist_values_on_sfield_id_and_value ON public.spic
 
 
 --
+-- Name: index_srecord_types_on_sobject_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_srecord_types_on_sobject_id ON public.srecord_types USING btree (sobject_id);
+
+
+--
+-- Name: index_srecord_types_on_sobject_id_and_salesforce_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_srecord_types_on_sobject_id_and_salesforce_id ON public.srecord_types USING btree (sobject_id, salesforce_id);
+
+
+--
 -- Name: index_srelationships_on_extraction_run_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1298,6 +1805,14 @@ CREATE INDEX index_users_on_role ON public.users USING btree (role);
 
 
 --
+-- Name: mapping_entries fk_rails_009d07f0f5; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mapping_entries
+    ADD CONSTRAINT fk_rails_009d07f0f5 FOREIGN KEY (source_field_id) REFERENCES public.sfields(id);
+
+
+--
 -- Name: field_profiles fk_rails_06ce0ffcd5; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1311,6 +1826,14 @@ ALTER TABLE ONLY public.field_profiles
 
 ALTER TABLE ONLY public.run_diffs
     ADD CONSTRAINT fk_rails_0a68f3ac63 FOREIGN KEY (run_a_id) REFERENCES public.extraction_runs(id);
+
+
+--
+-- Name: mapping_entries fk_rails_22da455ed6; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mapping_entries
+    ADD CONSTRAINT fk_rails_22da455ed6 FOREIGN KEY (cashline_snapshot_id) REFERENCES public.cashline_snapshots(id);
 
 
 --
@@ -1354,6 +1877,14 @@ ALTER TABLE ONLY public.srelationships
 
 
 --
+-- Name: embedding_sources fk_rails_640539ee07; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.embedding_sources
+    ADD CONSTRAINT fk_rails_640539ee07 FOREIGN KEY (sfield_id) REFERENCES public.sfields(id);
+
+
+--
 -- Name: cluster_assignments fk_rails_687f411867; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1378,11 +1909,27 @@ ALTER TABLE ONLY public.sessions
 
 
 --
+-- Name: mapping_value_entries fk_rails_7e93349e8c; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mapping_value_entries
+    ADD CONSTRAINT fk_rails_7e93349e8c FOREIGN KEY (mapping_entry_id) REFERENCES public.mapping_entries(id);
+
+
+--
 -- Name: object_profiles fk_rails_7f4c3cd680; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.object_profiles
     ADD CONSTRAINT fk_rails_7f4c3cd680 FOREIGN KEY (sobject_id) REFERENCES public.sobjects(id);
+
+
+--
+-- Name: mapping_proposals fk_rails_88e1b1a430; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mapping_proposals
+    ADD CONSTRAINT fk_rails_88e1b1a430 FOREIGN KEY (source_field_id) REFERENCES public.sfields(id);
 
 
 --
@@ -1394,11 +1941,27 @@ ALTER TABLE ONLY public.srelationships
 
 
 --
+-- Name: mapping_proposals fk_rails_8c70dcd3c0; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mapping_proposals
+    ADD CONSTRAINT fk_rails_8c70dcd3c0 FOREIGN KEY (cashline_snapshot_id) REFERENCES public.cashline_snapshots(id);
+
+
+--
 -- Name: extraction_runs fk_rails_a0981ca581; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.extraction_runs
     ADD CONSTRAINT fk_rails_a0981ca581 FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: srecord_types fk_rails_a2f48c6930; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.srecord_types
+    ADD CONSTRAINT fk_rails_a2f48c6930 FOREIGN KEY (sobject_id) REFERENCES public.sobjects(id);
 
 
 --
@@ -1415,6 +1978,14 @@ ALTER TABLE ONLY public.run_diffs
 
 ALTER TABLE ONLY public.srelationships
     ADD CONSTRAINT fk_rails_a9ad89c1b7 FOREIGN KEY (extraction_run_id) REFERENCES public.extraction_runs(id);
+
+
+--
+-- Name: mapping_entries fk_rails_aecb1ad626; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mapping_entries
+    ADD CONSTRAINT fk_rails_aecb1ad626 FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
 
 
 --
@@ -1448,6 +2019,15 @@ ALTER TABLE ONLY public.clusters
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260528000007'),
+('20260528000006'),
+('20260528000005'),
+('20260528000004'),
+('20260528000003'),
+('20260528000002'),
+('20260528000001'),
+('20260527202400'),
+('20260527202300'),
 ('20260524021000'),
 ('20260524020000'),
 ('20260524014600'),

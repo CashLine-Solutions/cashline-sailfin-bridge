@@ -13,6 +13,23 @@ Rails.application.routes.draw do
     end
   end
 
+  resources :mappings, only: [ :index, :create, :update, :destroy ] do
+    collection do
+      get :export_values
+      post :compute_suggestions
+    end
+    member { post :split }
+    resources :mapping_value_entries, only: [ :index, :create, :destroy ], path: "values", as: :values
+  end
+
+  resources :mapping_proposals, only: [] do
+    member do
+      post :accept
+      post :reject
+      post :unreject
+    end
+  end
+
   resources :erds, only: [ :index, :show ], param: :slug, constraints: { slug: %r{[^/.]+} }
   resources :clusters, only: [] do
     collection { get :edit }

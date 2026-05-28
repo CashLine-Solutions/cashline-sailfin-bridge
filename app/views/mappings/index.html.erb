@@ -1,0 +1,114 @@
+<% content_for(:title, "Mapping Workbench") %>
+
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-semibold">Mapping Workbench</h1>
+    <p class="text-sm text-slate-600">
+      Map Sailfin fields onto the cashline ontology — one row per mapping edge.
+      <%= link_to "Mapping-order report", reports_mapping_order_path, class: "text-blue-700 underline ml-1" %>
+    </p>
+  </div>
+  <% if @snapshot && (Current.user&.analyst? || Current.user&.admin?) %>
+    <div class="flex items-center gap-2">
+      <%= link_to "Field CSV", mappings_path(format: :csv, snapshot: @snapshot.id),
+            class: "rounded bg-slate-200 hover:bg-slate-300 text-slate-900 text-sm px-3 py-1.5",
+            title: "Field-level mapping CSV (free-text columns require sensitive_data_access)" %>
+      <% if Current.user&.sensitive_data_access? %>
+        <%= link_to "Value CSV", export_values_mappings_path(snapshot: @snapshot.id),
+              class: "rounded bg-slate-200 hover:bg-slate-300 text-slate-900 text-sm px-3 py-1.5",
+              title: "Picklist value-companion CSV (contains real values)" %>
+      <% end %>
+    </div>
+  <% end %>
+</div>
+
+<div class="mb-4 flex flex-wrap items-center gap-3 text-xs">
+  <% if @run %>
+    <span class="inline-flex items-center gap-1 rounded bg-slate-100 px-3 py-1 text-slate-700">
+      Sailfin run: <span class="font-mono"><%= @run.directory_token %></span>
+    </span>
+  <% end %>
+  <% if @snapshot %>
+    <span class="inline-flex items-center gap-1 rounded bg-slate-100 px-3 py-1 text-slate-700">
+      Cashline snapshot: <span class="font-mono">#<%= @snapshot.id %></span>
+      · <%= pluralize(@snapshot.classes.size, "class") %>
+      · loaded <%= time_ago_or_dash(@snapshot.loaded_at) %>
+    </span>
+  <% end %>
+</div>
+
+<% if @run.nil? %>
+  <div class="rounded border border-dashed border-slate-300 p-10 text-center bg-white">
+    <p class="text-slate-700">No active Sailfin run selected. <%= link_to "Pick one", runs_path, class: "text-blue-700 underline" %>.</p>
+  </div>
+<% else %>
+  <% if @snapshot.nil? %>
+    <div class="mb-4 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      No cashline snapshot loaded — showing source fields only.
+      Export one from cashline-platform (<span class="font-mono">bin/rails cashline:export_schema</span>)
+      and load it here (<span class="font-mono">bin/rails cashline:load_snapshot FILE=…</span>) to start mapping.
+    </div>
+  <% end %>
+
+  <%# URL-param filter chips. Filter state lives in the query string so any
+      view is bookmarkable/shareable. %>
+  <% base = { snapshot: params[:snapshot], reviewed: params[:reviewed], mapped: params[:mapped],
+              net_new: params[:net_new], needs_crosswalk: params[:needs_crosswalk],
+              mapping_type: params[:mapping_type], gap: params[:gap], worklist: params[:worklist],
+              has_suggestion: params[:has_suggestion] }.compact_blank %>
+  <% chip_on = "rounded bg-slate-900 text-white px-3 py-1 text-xs font-medium" %>
+  <% chip_off = "rounded border border-slate-300 bg-white text-slate-700 hover:border-slate-500 px-3 py-1 text-xs" %>
+  <% toggle = ->(key, val) { params[key].to_s == val.to_s ? base.except(key) : base.merge(key => val) } %>
+
+  <div class="mb-4 space-y-2">
+    <div class="flex items-center gap-2 text-xs flex-wrap">
+      <span class="text-slate-500 font-medium">Saved views:</span>
+      <%= link_to "Gap discovery", mappings_path(toggle.call(:gap, "1")),
+            class: (params[:gap] == "1" ? chip_on : chip_off),
+            title: "Reviewed, high-population Sailfin fields with no cashline home — the gap signal" %>
+      <%= link_to "Review worklist", mappings_path(toggle.call(:worklist, "1")),
+            class: (params[:worklist] == "1" ? chip_on : chip_off),
+            title: "Unreviewed, high-population fields to prioritize" %>
+    </div>
+
+    <div class="flex items-center gap-2 text-xs flex-wrap">
+      <span class="text-slate-500 font-medium">Filters:</span>
+      <%= link_to "Reviewed", mappings_path(toggle.call(:reviewed, "yes")), class: (params[:reviewed] == "yes" ? chip_on : chip_off) %>
+      <%= link_to "Unreviewed", mappings_path(toggle.call(:reviewed, "no")), class: (params[:reviewed] == "no" ? chip_on : chip_off) %>
+      <%= link_to "Mapped", mappings_path(toggle.call(:mapped, "yes")), class: (params[:mapped] == "yes" ? chip_on : chip_off) %>
+      <%= link_to "Unmapped", mappings_path(toggle.call(:mapped, "no")), class: (params[:mapped] == "no" ? chip_on : chip_off) %>
+      <%= link_to "Net-new", mappings_path(toggle.call(:net_new, "1")), class: (params[:net_new] == "1" ? chip_on : chip_off) %>
+      <%= link_to "Needs crosswalk", mappings_path(toggle.call(:needs_crosswalk, "1")), class: (params[:needs_crosswalk] == "1" ? chip_on : chip_off) %>
+      <%= link_to "Has suggestion", mappings_path(toggle.call(:has_suggestion, "1")), class: (params[:has_suggestion] == "1" ? chip_on : chip_off) %>
+    </div>
+
+    <div class="flex items-center gap-2 text-xs flex-wrap">
+      <span class="text-slate-500 font-medium">Type:</span>
+      <% MappingEntry::MAPPING_TYPES.each do |mt| %>
+        <%= link_to mt, mappings_path(toggle.call(:mapping_type, mt)), class: (params[:mapping_type] == mt ? chip_on : chip_off) %>
+      <% end %>
+      <% if base.except(:snapshot).any? %>
+        <%= link_to "× clear filters", mappings_path({ snapshot: params[:snapshot] }.compact_blank), class: "text-xs text-rose-600 hover:text-rose-800 ml-2 underline" %>
+      <% end %>
+    </div>
+  </div>
+
+  <% if @snapshot %>
+    <%# Shared typeahead source for every row's Target input. %>
+    <datalist id="cashline-targets">
+      <% @cashline_targets.each do |opt| %><option value="<%= opt %>"></option><% end %>
+    </datalist>
+  <% end %>
+
+  <div class="mb-2 flex items-center justify-between">
+    <p class="text-xs text-slate-500"><%= pluralize(@rows.size, "edge") %> shown</p>
+    <% if @snapshot && (Current.user&.analyst? || Current.user&.admin?) %>
+      <%= button_to "Compute suggestions", compute_suggestions_mappings_path, method: :post,
+            class: "rounded bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5",
+            form: { data: { turbo: false } } %>
+    <% end %>
+  </div>
+
+  <%= render "grid", rows: @rows, snapshot: @snapshot,
+        proposals_by_field: @open_proposals_by_field, rejected_field_ids: @rejected_field_ids %>
+<% end %>

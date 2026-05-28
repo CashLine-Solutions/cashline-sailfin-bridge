@@ -1,0 +1,6 @@
+<%= turbo_frame_tag @frame_id do %>
+  <%= render "mappings/value_table",
+        mapping_entry: @mapping_entry, source_values: @source_values,
+        enum_values: @enum_values, existing: @existing,
+        can_edit: @can_edit, can_view_values: @can_view_values %>
+<% end %>

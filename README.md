@@ -18,9 +18,27 @@ See `docs/brainstorms/2026-05-23-sailfin-extraction-and-ontology-requirements.md
 | **F** Diff | `DiffCalculator` + `ComputeDiffJob`, categorized diff UI, Markdown export |
 | **Polish** | Sortable + type-filtered fields tables, click-to-expand field detail with prev/next walkthrough, filtered CSV exports pre-seeded with mapping columns, Sailfin scope preset, live profiling progress |
 
-Phase 3 (mapping workbench, FIBO suggestions, Turtle export) is deferred — see [`docs/method/manual-mapping-stopgap.md`](docs/method/manual-mapping-stopgap.md) for the workflow that does the work in a spreadsheet + text editor until Phase 3 is scoped.
+### Mapping workbench (Sailfin → cashline)
 
-221 tests, 650 assertions, 0 failures.
+A single sortable/filterable grid (`/mappings`) maps the extracted Sailfin schema onto cashline-platform's forward-looking data model — one row per mapping *edge*. It ingests cashline-platform's current schema as a JSON **snapshot** (natural-key target references, so re-snapshotting a moving target doesn't orphan work), supports manual mapping (target picklist, 6-value mapping type, confidence, reviewed flag, notes, 1:N split), structured picklist value→enum mapping, a gap-discovery saved view, and gated CSV export for the downstream test-import loop. An API-free **heuristic matcher** (lexical + type + picklist-overlap) surfaces one-click suggestions, with optional **OpenAI + pgvector embedding** similarity layered on top when configured (see below).
+
+Deferred (gated): the full snapshot-selection UI and categorized re-snapshot reconciliation (both gated on a second snapshot existing) — see `docs/plans/2026-05-27-001-feat-cashline-sailfin-mapping-workbench-plan.md`. The pre-workbench spreadsheet workflow is in [`docs/method/manual-mapping-stopgap.md`](docs/method/manual-mapping-stopgap.md).
+
+#### Embedding suggestions (optional)
+
+Embeddings are an *additive* signal — the heuristic matcher works without them. To enable:
+
+1. **pgvector** must be installed in every Postgres the app touches:
+   - dev (Homebrew PG14): `git clone --branch v0.8.2 https://github.com/pgvector/pgvector && cd pgvector && make && make install PG_CONFIG=$(brew --prefix postgresql@14)/bin/pg_config` (the Homebrew `pgvector` bottle ships PG17/18 only).
+   - **CI and the production/Kamal Postgres image must also have pgvector** before `db/structure.sql` (which now `CREATE EXTENSION vector`) will load.
+2. Add the OpenAI key: `bin/rails credentials:edit` →
+   ```yaml
+   openai:
+     api_key: sk-...
+   ```
+3. With the key present, the "Compute suggestions" button chains `ComputeEmbeddingsJob` after the heuristic pass. Sensitive (`pii`/`financial`/`unknown_sensitivity`) fields are embedded **metadata-only** (api_name + type, never label/help/values); embeddings degrade to heuristic-only if the key is absent or OpenAI is unreachable.
+
+332 tests, 1008 assertions, 0 failures.
 
 ## Quickstart (development)
 
@@ -112,6 +130,11 @@ bin/rails sailfin:limits                      # current API quota
 bin/rails users:create_admin EMAIL=...        # provision an admin
 bin/rails users:list                          # list users + roles
 bin/rails runs:rebuild_db RUN=<token>         # rebuild relational tables from on-disk JSONL
+
+# Mapping workbench (Sailfin → cashline)
+bin/rails cashline:export_schema              # (run in cashline-platform) export current schema → JSON + .sha256
+bin/rails cashline:load_snapshot FILE=<path>  # ingest that JSON here (verifies the SHA-256 sidecar)
+# then open /mappings; "Compute suggestions" runs the heuristic matcher
 
 # Audit DB (production)
 bin/rails audit:provision_roles               # create owner + writer roles

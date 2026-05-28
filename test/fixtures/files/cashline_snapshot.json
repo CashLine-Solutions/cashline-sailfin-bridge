@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "exported_at": "2026-05-28T00:00:00Z",
+  "rails_version": "8.1.3",
+  "classes": [
+    {
+      "class_name": "Invoice",
+      "table_name": "invoices",
+      "namespace": null,
+      "columns": [
+        { "name": "id", "sql_type": "bigint", "type": "integer", "null": false, "default": null, "comment": null },
+        { "name": "invoice_number", "sql_type": "character varying", "type": "string", "null": false, "default": null, "comment": null },
+        { "name": "amount_cents", "sql_type": "integer", "type": "integer", "null": false, "default": 0, "comment": null },
+        { "name": "status", "sql_type": "integer", "type": "integer", "null": false, "default": 0, "comment": null, "enum_values": { "draft": 0, "submitted": 1, "approved": 2 } }
+      ],
+      "enums": { "status": { "draft": 0, "submitted": 1, "approved": 2 } },
+      "associations": [
+        { "name": "customer_account", "macro": "belongs_to", "class_name": "Customer::Account", "foreign_key": "customer_account_id", "polymorphic": false }
+      ]
+    },
+    {
+      "class_name": "Ingestion::Connector",
+      "table_name": "ingestion_connectors",
+      "namespace": "Ingestion",
+      "columns": [
+        { "name": "id", "sql_type": "bigint", "type": "integer", "null": false, "default": null, "comment": null },
+        { "name": "kind", "sql_type": "integer", "type": "integer", "null": false, "default": 0, "comment": null, "enum_values": { "file_upload": 0, "manual_entry": 1, "sailfin": 4 } }
+      ],
+      "enums": { "kind": { "file_upload": 0, "manual_entry": 1, "sailfin": 4 } },
+      "associations": []
+    }
+  ]
+}

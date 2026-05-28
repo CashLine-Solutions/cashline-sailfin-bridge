@@ -1,0 +1,29 @@
+<%# The mapping grid. Locals: rows (Array<MappingGridRow>), snapshot. %>
+<div class="overflow-x-auto rounded border border-slate-200 bg-white">
+  <table class="min-w-full divide-y divide-slate-200 text-sm" data-controller="sortable-table mapping-target">
+    <thead class="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
+      <tr>
+        <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="text">Data Group<span class="sort-indicator"></span></th>
+        <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="text">Sailfin Object<span class="sort-indicator"></span></th>
+        <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="text">Sailfin Field<span class="sort-indicator"></span></th>
+        <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="number">Population<span class="sort-indicator"></span></th>
+        <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="text">Mapping Type<span class="sort-indicator"></span></th>
+        <th class="px-3 py-2">Target</th>
+        <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="text">Confidence<span class="sort-indicator"></span></th>
+        <th class="px-3 py-2 cursor-pointer select-none hover:bg-slate-200" data-action="click->sortable-table#sort" data-sort-type="text">Reviewed<span class="sort-indicator"></span></th>
+        <th class="px-3 py-2">Notes</th>
+        <th class="px-3 py-2">Suggest</th>
+      </tr>
+    </thead>
+    <tbody id="mappings-tbody" class="divide-y divide-slate-100" data-sortable-table-target="body">
+      <% if rows.empty? %>
+        <tr><td colspan="10" class="px-3 py-6 text-center text-slate-500">No fields to map for this run.</td></tr>
+      <% else %>
+        <%= render partial: "row", collection: rows, as: :row,
+              locals: { snapshot: snapshot,
+                        proposals_by_field: local_assigns.fetch(:proposals_by_field, {}),
+                        rejected_proposals_by_field: local_assigns.fetch(:rejected_proposals_by_field, {}) } %>
+      <% end %>
+    </tbody>
+  </table>
+</div>
