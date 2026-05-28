@@ -255,6 +255,34 @@ The "Likely Next Planning Areas" section of the platform's own summary doc flags
 
 **Recommendation.** Build the per-record reconciliation pass before the first real Client uploads its second weekly file. Match on `(client_group, invoice_number)`; update the existing `Invoice` if the incoming row has changed; flag the change in the `ImportRecord` so the operator can audit. Owner: Andreas. Trigger: before the first Client's second weekly upload.
 
+### Gap 11 (P1) — Picklist value translation is an unsized workstream
+
+The Sailfin org has **366 picklist fields holding ~8,000 distinct values**. Once you strip out the 13 platform-supplied mega-picklists (`TimeZoneSidKey`, `LocaleSidKey`, `RelatedEntityType`, `SobjectType`, etc. — ~3,700 values, all carried verbatim from Salesforce), the **business-meaningful surface is ~342 fields and ~4,300 values**, concentrated on the `sfsrm__*` collections objects:
+
+| Field | Values |
+|---|---:|
+| `sfsrm__Dispute__c.sfsrm__Sub_Type__c` | 70 |
+| `sfsrm__Payment_Line__c.sfsrm__Reason_Code__c` | 64 |
+| `sfsrm__Treatment__c.sfsrm__Treatment_Group__c` | 37 |
+| `sfsrm__Transaction__c.sfsrm__Sub_Reason_Code__c` | 36 |
+| (~340 more, mostly 2–20 values each) | |
+
+Every one of these is a vocabulary decision waiting to happen. The current platform enums (Invoice.status, PaymentPromise.status, OperationalTask.category, InvoiceDispute subtypes) carry between 6 and 15 values each. Mapping ~4,300 source values into a platform vocabulary of order ~100 values means **most mappings are many-to-one collapses or "drop"** — and someone has to make the call per value.
+
+**Why it matters.** This is the work that turns a Sailfin extraction into Cashline platform records. It's also the work that hides silently:
+- Gap 5 (Dispute vs Task boundary) depends on knowing which `sfsrm__Dispute__c.sfsrm__Sub_Type__c` values mean "blocks payment" (→ `InvoiceDispute`) vs "needs follow-up" (→ `OperationalTask`).
+- Gap 7 (Invoice lifecycle states) calls for adding 5 platform states, but Sailfin's lifecycle is encoded across multiple picklist fields *plus* the 64 date columns on `Transaction`. The state additions are necessary but not sufficient — the source-to-platform state derivation rule is the real work.
+- Decision #5 (migration fidelity) is undecidable without knowing what fraction of source picklist values survive vs get dropped. "Lossless per-field" is a different commitment when 30% of values map to `null`.
+- Salesforce admins add picklist options through the UI with no commit trail. The Sailfin extraction tool already SHA256-hashes each picklist's value set per run and surfaces additions/removals on the diff page — use that as the canary for translation-table maintenance after the initial mapping.
+
+**Recommendation.** Three steps, none of them large:
+
+1. **Inventory.** Use `/reports/picklists` (added alongside this doc) to export the substantive ~342 fields with their values. Owner: Stephen. Trigger: this week.
+2. **Decide a target vocabulary for the four high-signal `sfsrm__*` fields** (Dispute.Sub_Type, Payment_Line.Reason_Code, Treatment_Group, Transaction.Sub_Reason_Code) before the first brand migration. These four hold ~200 values and feed Gaps 5 and 7. Owner: Stephen + Andreas. Trigger: before first real Sailfin sync.
+3. **Defer the long tail.** The remaining ~340 fields are mostly 2–20-value picklists on standard objects (Lead.Industry, Contract.CurrencyIsoCode). Treat as carry-over via `Invoice.metadata` / JSONB until a use case forces a platform decision. Owner: Andreas. Trigger: per-field as needs arise.
+
+**What this is *not*.** It's not a request to model all 4,300 values in the platform schema — it's a request to *write down the translation table* per substantive field, so the ingest pipeline has somewhere to look up "Sailfin says X → platform should record Y (or drop)."
+
 ### Risk 1 — `Operator::UserAccount` is not persisted
 
 This is a Ruby `ActiveModel::Model` form-object wrapper around `(operator, user)`, with no table. It is a temporary scaffold. Either persist it or make it a true value object — leaving it in this hybrid state will trip up someone six months from now.
@@ -262,6 +290,58 @@ This is a Ruby `ActiveModel::Model` form-object wrapper around `(operator, user)
 ### Risk 2 — `CommunicationEvent` has 6 optional FKs (with no "at least one" guard)
 
 This is a "shotgun foreign keys" pattern. Validation forces all set FKs to share `client_group`, but doesn't enforce that at least one is set. A `CommunicationEvent` with only `client_group_id` and `created_by_user_id` is currently valid — it becomes a floating log entry linked to nothing operational. May or may not be intentional; worth deciding explicitly.
+
+The five-lens review (2026-05-27) found the same pattern recurs and worsens on `OperationalTask` (9 optional FKs, 8 cross-context validators). See [`./reviews/03-data-architect.md`](./reviews/03-data-architect.md#polymorphic-relationships--the-communicationevent-shape) for the discriminator + denormalized-context redesign.
+
+### Gap 12 (P0) — `sfsrm__Transaction__c → Invoice` 1:1 mapping is wrong
+
+The current side-by-side mapping (line 45) treats `sfsrm__Transaction__c` as a 1:1 source for `Invoice`. SRM Cloud's actual model: `sfsrm__Transaction__c` is the **polymorphic AR posting record**, carrying 14 transaction types (verified via `sfsrm__Payment_Line__c.sfsrm__Transaction_Type__c`): `Invoice / Credit Memo / On Account / Apply Cash / Write Off / Write Back / Reversal / Offset / Auto Applied / Account to Account Transfer / Payment Refund / Deduction / Applied Credit / Discount`.
+
+**Why it matters.** Mapping 1:1 to `Invoice` silently drops ~30–40% of AR-affecting rows (every credit memo, write-off, on-account cash, offset, deduction). Also re-frames Gap 1: the cash side is partly *inside* `sfsrm__Transaction__c`, not just in `sfsrm__Payment__c`.
+
+**Recommendation.** Model `ARPosting` as the polymorphic parent with `kind` enum (`invoice / credit_memo / on_account / write_off / write_back / reversal / offset / applied_credit / payment_refund / deduction / discount / account_transfer`). `Invoice` becomes one subtype. Aligns with SRM Cloud's actual data model and gives Gap 1 a coherent landing zone. See [`./reviews/01-salesforce-architect.md`](./reviews/01-salesforce-architect.md#sfsrm_transaction__c--invoice) for the verification SQL and rationale.
+
+### Gap 13 (P1) — PII sensitivity classifier misses banking/credentials/EIN
+
+Independent finding from the data analyst review: [`app/services/ontology/sensitivity_classifier.rb:91`](../../app/services/ontology/sensitivity_classifier.rb)'s `PII_NAME_PATTERN` is missing `aba|routing|bank_account|iban|swift|ein|password|secret|token`, and the snake_case alternations (`first_name`, `last_name`) don't match Salesforce's camelCase (`FirstName`, `LastName`).
+
+**Verified affected fields in run 9** (all currently classified `safe`):
+
+- `sfsrm__EIN_or_Social_Security_Numbre_s__c` (note the typo — survives any regex looking for `social_security_number`)
+- `sfsrm__Archival_Password__c`
+- `Contact.FirstName`, `Contact.LastName` (only the compound `Contact.Name` is marked PII)
+- `ABA`, `Routing`, `Bank_Account_No`, `IBAN` fields wherever they appear
+
+**Why it matters.** Run 9 carried `top_values` for `Account.Name`, `Brand_Region__c`, `sfcapp__Bank_Name__c` containing real customer/bank/person names because the upstream classifier marked those fields `safe`. The `include_sensitive=false` guarantee is structurally broken.
+
+**Recommendation.** Extend `PII_NAME_PATTERN` to include the banking and credentials vocabulary; add explicit camelCase variants or normalize input before matching. Re-run the classifier against run 9 and re-profile to scrub leaked `top_values` / `sample_values`. See [`./reviews/00-synthesis.md`](./reviews/00-synthesis.md#p01--pii-classifier-lets-bankingcredentialsein-through-as-safe) for the exact fix.
+
+### Gap 14 (P1) — Multi-currency + signed amounts contradict Design 4
+
+Design Decision 4 ("money in integer cents", line 98) assumes a single currency and non-negative amounts. The data has Accounts holding balances in **10 currencies** (USD, CAD, BRL, GBP, EUR, AUD, ARS, NOK, COP, TTD) — some with different minor units (JPY=0, TND=3) — and every receivables-side amount has negative values (credits, reversals, refunds).
+
+**Recommendation.** Add a `currencies` reference table with per-currency `subunits` (cents/fils/none), and a `currency_conversions` table with date-bracketed rates. Switch the `*_cents` columns from unsigned to signed before the first non-USD invoice lands. See [`./reviews/05-general-data-analyst.md`](./reviews/05-general-data-analyst.md#hidden-assumptions-in-the-cashline-platform-ontology) for the data-backed currency distribution.
+
+### Gap 15 (P1) — Five architectural omissions: soft-delete, state log, provenance, tenant shell, structured extensibility
+
+From the data-architect review ([`./reviews/03-data-architect.md`](./reviews/03-data-architect.md#whats-missing-entirely)):
+
+1. **No `discarded_at` on any operational model.** First accidental delete is an audit-log replay exercise. Add to every operational model now.
+2. **No `state_transitions` event log.** "How long did this invoice spend in `in_review`?" is answerable only via Ruby reconstruction over `audited_changes`. One ~80-LOC polymorphic table + `after_update_commit` hook covers this.
+3. **No field-level provenance.** `Invoice.source_system` is row-level only. Gap 10's re-upload reconciliation needs to answer "Sailfin owns amount; cashline owns status" per field. Add `field_provenance jsonb`.
+4. **No `Tenant::Group` shell above `Operator`.** Year-3 marketplace scenario (collections-PaaS hosting multiple agencies) becomes a multi-week migration. Pre-empting is one nullable FK; near-free now.
+5. **No `ClientFieldDefinition + ClientFieldValue` structured-extensibility pair.** JSONB-only metadata fails the four collector concerns Gap 3 names (filter, sort, validate, report). Build the sidecar pair before the first non-pilot Client ingestion is configured.
+
+### Gap 16 (P1) — Missing operational entities a real collections shop expects
+
+From the collections domain expert review ([`./reviews/02-collections-domain-expert.md`](./reviews/02-collections-domain-expert.md#missing-operational-entities)):
+
+1. **Credit Hold / Watchlist** — `CreditHold { customer_account_id, started_at, ended_at, reason, authorized_by_user_id, lifted_by_user_id }` + `Customer::Account.credit_limit_cents`, `dunning_enabled`.
+2. **Customer Hierarchy / Parent-Pay** — two distinct FKs on `Customer::Organization`: `parent_organization_id` (org chart) and `pays_through_organization_id` (treasury arrangement).
+3. **Dunning Strategy / Cadence** — `DunningStrategy { client_organization_id, name, rules: jsonb }` + `Customer::Account.dunning_strategy_id`. Configuration belongs in the ontology even if execution doesn't.
+4. **Aging Bucket Definition** — `AgingBucketDefinition { client_organization_id, buckets: jsonb }` (Client-configurable, not hardcoded 30/60/90).
+5. **Statement of Account** — most common dispute trigger; store the rendered PDF rather than re-deriving line items.
+6. **Collection note routing** — notes belong on `Customer::Account` or `PaymentPromise`, not embedded on the triggering invoice.
 
 ---
 
@@ -277,6 +357,7 @@ Six decisions, prioritised, with named owners and a default that ships if the me
 | 4 | **Aging-report re-upload semantics.** (See Gap 10.) | Build per-record reconciliation against `(client_group, invoice_number)` before the second weekly upload. | Andreas | Before first Client's second upload |
 | 5 | **Migration fidelity from Sailfin.** Lossless per-field, subset of fields, or forward-only from a cutover date? This decision drives the JSONB/side-table call, the lifecycle-state expansion, and the SyncRun design. | Subset of fields tied to Phase-1 dashboard needs; rest carried in `Invoice.metadata` for Phase 2. Cutover dates negotiated brand-by-brand. | Bryce + Stephen | Pilot Week 1 |
 | 6 | **Promise model granularity.** Multi-invoice promises now, or invoice-level through pilot? (See Gap 6.) | Promote to many-to-many now via `PaymentPromiseAllocation`. The cost is near-zero today and unbounded later. | Andreas | Before any real promise data lands |
+| 7 | **Picklist translation tables.** Write target-vocabulary tables for the four high-signal `sfsrm__*` picklists before the first brand migration. (See Gap 11.) | Decide target values for Dispute.Sub_Type (70), Payment_Line.Reason_Code (64), Treatment_Group (37), Transaction.Sub_Reason_Code (36); defer the long tail to JSONB. | Stephen + Andreas | Before first real Sailfin sync |
 
 Decisions deliberately *not* on this list:
 
@@ -294,6 +375,7 @@ Decisions deliberately *not* on this list:
 1. **For the Week-1 pilot kickoff:** open this side by side with `sailfin-cluster-map.md`. Use the side-by-side mapping table as the meeting agenda; use the "Decisions for Week 1" table as the topic queue.
 2. **For roadmap planning:** the "Gaps and risks" section grades each gap P0 / P1 / P2 by Week-1 pilot urgency. P0s are immediate next-epic work; P2s can wait.
 3. **As a living document:** update as decisions get made. Pair with the cluster map; both should drift together as the ontology takes shape.
+4. **Deeper review (2026-05-27):** five independent specialist reviews live in [`./reviews/`](./reviews/). [`00-synthesis.md`](./reviews/00-synthesis.md) is the entry point. Gaps 12–16 above were derived from those reviews; the individual reviews carry the supporting SQL and citations.
 
 ---
 
@@ -303,3 +385,4 @@ Decisions deliberately *not* on this list:
 - Sailfin cluster map: [`./sailfin-cluster-map.md`](./sailfin-cluster-map.md) (paired document).
 - Discovery & strategic context: `/Users/stephenparslow/Sites/cashline` Obsidian vault — `resources/business/sailfin.md`, `drafts/cashline-revised-pilot-proposal-2026-05-14.md`, `raw/2026-05-05-cashline-robert-cameron-discovery-call.md`, `raw/2026-05-04-cashline-tara-discovery-call.md`, `drafts/cashline-areas-of-focus-scored-2026-05-06.md`.
 - Sailfin extraction run: `2026-05-24T23-27-12Z-be06` (123 sobjects, ~4,800 fields).
+- EDA report: [`./sailfin-eda-2026-05-27.md`](./sailfin-eda-2026-05-27.md) — schema-shape stats, namespace/relationship analysis, picklist counts.
