@@ -58,7 +58,7 @@
 
   <td class="px-3 py-2" data-sort-value="<%= row.disposition %>">
     <% if row.disposition %>
-      <% disp_cls = { "keep" => "bg-emerald-100 text-emerald-800", "need_in_cashline" => "bg-amber-100 text-amber-800", "discard" => "bg-slate-200 text-slate-500" }[row.disposition] %>
+      <% disp_cls = { "keep" => "bg-emerald-100 text-emerald-800", "need_in_cashline" => "bg-amber-100 text-amber-800", "sync_reference" => "bg-indigo-100 text-indigo-800", "discard" => "bg-slate-200 text-slate-500" }[row.disposition] %>
       <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap <%= disp_cls %>"
             title="<%= row.field_assessment&.disposition_reason %>"><%= row.disposition_label %></span>
     <% else %>

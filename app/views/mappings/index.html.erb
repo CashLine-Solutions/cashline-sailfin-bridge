@@ -87,6 +87,7 @@
       <span class="text-slate-500 font-medium">Disposition:</span>
       <%= link_to "Keep", mappings_path(toggle.call(:disposition, "keep")), class: (params[:disposition] == "keep" ? chip_on : chip_off) %>
       <%= link_to "Need in cashline", mappings_path(toggle.call(:disposition, "need_in_cashline")), class: (params[:disposition] == "need_in_cashline" ? chip_on : chip_off) %>
+      <%= link_to "Sailfin sync", mappings_path(toggle.call(:disposition, "sync_reference")), class: (params[:disposition] == "sync_reference" ? chip_on : chip_off) %>
       <%= link_to "Discard", mappings_path(toggle.call(:disposition, "discard")), class: (params[:disposition] == "discard" ? chip_on : chip_off) %>
     </div>
 

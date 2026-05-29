@@ -135,14 +135,25 @@ module Mapping
         Also produce:
         - role_note: one or two plain sentences on what the source field stores and
           its role in the object — the kind of note a data analyst would jot down.
-        - disposition: keep / need_in_cashline / discard.
-          * keep — a candidate genuinely fits (you chose one); it exists in both systems.
-          * need_in_cashline — no candidate fits, BUT the field is actually USED in
-            Sailfin (judge from its data stats: low null rate, real distinct values,
-            meaningful content). Cashline lacks this and should add it.
-          * discard — no candidate fits AND the field is unused or vestigial (mostly
-            null, single/zero distinct values, or pure Salesforce administrative
-            plumbing). Not worth carrying into cashline.
+        - disposition: keep / need_in_cashline / sync_reference / discard.
+          * keep — a candidate genuinely fits (you chose one); map it to that real
+            cashline field and use it going forward.
+          * sync_reference — the field is a Sailfin-specific identifier, source key,
+            or cross-reference (record IDs, association/junction IDs, external-system
+            keys) that cashline should retain ONLY to map and sync data during the
+            Sailfin migration. It is stored as a `sailfin_`-prefixed reference column,
+            NOT adopted as cashline's own key, and is purged once Sailfin is shut
+            down. (e.g. the id linking an Account to a Brand — keep it to bridge the
+            data, but cashline mints its own mapping id.)
+          * need_in_cashline — a genuine, lasting business capability that is
+            actually USED in Sailfin (judge from data stats: low null rate, real
+            distinct values, meaningful content) but has no cashline home. Treat this
+            as a GAP to surface for cashline's own design: cashline will model the
+            capability its own way, informed by operator interviews, NOT by copying
+            Sailfin's field shape. Only used fields qualify — an unused field is
+            `discard`, even if it belongs to a domain cashline plans to build fresh.
+          * discard — unused or vestigial (mostly null, single/zero distinct values,
+            or pure Salesforce administrative plumbing). Not worth carrying forward.
 
         Confirmed entity-level mappings, for orientation (source object -> cashline class):
         #{examples}
