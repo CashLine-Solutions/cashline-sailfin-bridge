@@ -239,4 +239,86 @@ namespace :mapping do
     by_disp = FieldAssessment.where(cashline_snapshot_id: snapshot.id).group(:disposition).count
     puts "\nDone. assessments by disposition: #{by_disp}"
   end
+
+  desc "Re-assess Sailfin reference/lookup + external-id fields with Opus. RUN= SNAPSHOT= [INCLUDE_AUDIT=1] [DRY_RUN=1]"
+  task escalate_refs: :environment do
+    run, snapshot = resolve_run_and_snapshot
+    opus = Anthropic::Messages.new
+    abort "Anthropic not configured — set anthropic.api_key" unless opus.available?
+
+    # Lookups (data_type 'reference') plus custom external-id/key fields, which
+    # gpt-4o-mini tends to mislabel `discard` rather than `sailfin_sync`. Standard
+    # audit references are excluded (they really are discard) unless INCLUDE_AUDIT.
+    audit_refs = %w[CreatedById LastModifiedById OwnerId LastModifiedByID]
+    fields = Sfield.joins(:sobject)
+      .where(sobjects: { extraction_run_id: run.id })
+      .where("sfields.data_type = 'reference' OR sfields.api_name ~* '(_id|_ids|_key)__c$'")
+      .includes(:spicklist_values, :sobject)
+      .to_a
+    fields.reject! { |sf| audit_refs.include?(sf.api_name) } unless ENV["INCLUDE_AUDIT"] == "1"
+    # Resumable: skip fields Opus already re-assessed (e.g. after a credit stall),
+    # unless FORCE=1 re-does them all.
+    fields.reject! { |sf| FieldAssessment.exists?(sfield_id: sf.id, cashline_snapshot_id: snapshot.id, model: opus.model) } unless ENV["FORCE"] == "1"
+
+    puts "Reference/ID fields to re-assess with #{opus.model}: #{fields.size}"
+    if ENV["DRY_RUN"] == "1"
+      fields.first(40).each { |sf| puts "  #{sf.sobject.api_name}.#{sf.api_name} (#{sf.data_type})" }
+      puts "  ... (#{fields.size} total)" if fields.size > 40
+      next
+    end
+
+    adj = Mapping::LlmAdjudicator.new(snapshot: snapshot, client: opus)
+    fields.each_with_index do |sf, i|
+      adj.adjudicate(sf)
+      print(i % 50 == 49 ? " #{i + 1}\n" : ".")
+    rescue Anthropic::Error, Faraday::Error => e
+      run.record_partial_failure!(object_api_name: "escalate_refs:#{sf.api_name}", reason: e.message)
+      print "x"
+    end
+
+    contested = begin
+      Mapping::LlmDisambiguator.new(snapshot: snapshot, client: opus).resolve!(run)
+    rescue Anthropic::Error, Faraday::Error => e
+      puts "\ndisambiguation skipped (#{e.class}): #{e.message}"
+      0
+    end
+    puts "\nre-assessed #{fields.size} fields; disambiguated #{contested}."
+    puts "dispositions: #{FieldAssessment.where(cashline_snapshot_id: snapshot.id).group(:disposition).count}"
+  end
+
+  desc "Re-assess low-confidence tier-1 (mini) fields with Opus. RUN= SNAPSHOT= BELOW=0.75 [DRY_RUN=1]"
+  task escalate_uncertain: :environment do
+    run, snapshot = resolve_run_and_snapshot
+    opus = Anthropic::Messages.new
+    abort "Anthropic not configured — set anthropic.api_key" unless opus.available?
+    below = (ENV["BELOW"] || "0.75").to_f
+
+    # Fields the cheap tier flagged as uncertain (and that Opus hasn't already
+    # re-done). Unlike mapping:assess this does NOT reset proposals — it only
+    # re-adjudicates this set with Opus, preserving everything else.
+    field_ids = FieldAssessment.where(cashline_snapshot_id: snapshot.id, model: Openai::Chat::DEFAULT_MODEL)
+      .where("confidence < ?", below).pluck(:sfield_id)
+    fields = Sfield.where(id: field_ids).includes(:spicklist_values, :sobject).to_a
+
+    puts "Low-confidence mini fields (< #{below}) to re-assess with #{opus.model}: #{fields.size}"
+    next if ENV["DRY_RUN"] == "1"
+
+    adj = Mapping::LlmAdjudicator.new(snapshot: snapshot, client: opus)
+    fields.each_with_index do |sf, i|
+      adj.adjudicate(sf)
+      print(i % 50 == 49 ? " #{i + 1}\n" : ".")
+    rescue Anthropic::Error, Faraday::Error => e
+      run.record_partial_failure!(object_api_name: "escalate_uncertain:#{sf.api_name}", reason: e.message)
+      print "x"
+    end
+
+    contested = begin
+      Mapping::LlmDisambiguator.new(snapshot: snapshot, client: opus).resolve!(run)
+    rescue Anthropic::Error, Faraday::Error => e
+      puts "\ndisambiguation skipped (#{e.class}): #{e.message}"
+      0
+    end
+    puts "\nre-assessed #{fields.size} fields; disambiguated #{contested}."
+    puts "dispositions: #{FieldAssessment.where(cashline_snapshot_id: snapshot.id).group(:disposition).count}"
+  end
 end
