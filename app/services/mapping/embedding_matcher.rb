@@ -19,6 +19,7 @@ module Mapping
     def initialize(snapshot:, embeddings: nil)
       @snapshot = snapshot
       @embeddings = embeddings || Openai::Embeddings.new
+      @dossier = Dossier.new(snapshot: snapshot)
     end
 
     def available?
@@ -27,14 +28,14 @@ module Mapping
 
     # Merge embedding candidates into proposals for every field in `run`.
     # Returns false (no-op) when OpenAI isn't configured — heuristic stands.
-    def combine!(run)
+    def combine!(run, fields: nil)
       return false unless available?
 
       targets = build_targets
       target_hashes = targets.map { |t| t[:hash] }.uniq
       hash_to_targets = targets.group_by { |t| t[:hash] }
 
-      sources = source_fields(run).map do |sf|
+      sources = (fields || source_fields(run)).map do |sf|
         text = descriptor_for_sfield(sf)
         { sfield: sf, text: text, hash: sha(text) }
       end
@@ -59,21 +60,18 @@ module Mapping
 
     private
 
+    # Descriptor text = the full role dossier (sensitivity-gated inside Dossier:
+    # non-safe fields render structural-metadata-only, so nothing sensitive is
+    # transmitted). This is the change that lets embeddings match on role, not
+    # just name.
     def descriptor_for_sfield(sfield)
-      if sfield.sensitivity.to_s == "safe"
-        help = sfield.raw_describe["inlineHelpText"]
-        [ sfield.api_name, sfield.label, sfield.data_type, help ].filter_map(&:presence).join(" ")
-      else
-        # Structural-metadata-only (fail-closed for unknown_sensitivity): never
-        # transmit the label/help of a sensitive field.
-        [ sfield.api_name, sfield.data_type ].filter_map(&:presence).join(" ")
-      end
+      @dossier.render(@dossier.source(sfield))
     end
 
     def build_targets
       @snapshot.classes.flat_map do |class_name|
         @snapshot.fields_for(class_name).reject { |c| HeuristicMatcher::SKIP_FIELDS.include?(c["name"]) }.map do |col|
-          text = [ class_name.demodulize, col["name"], col["type"], col["comment"] ].filter_map { |x| x.to_s.presence }.join(" ")
+          text = @dossier.render(@dossier.target(class_name, col["name"]))
           { class: class_name, field: col["name"], text: text, hash: sha(text) }
         end
       end
