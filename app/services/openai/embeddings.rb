@@ -7,6 +7,8 @@ module Openai
     MODEL = "text-embedding-3-small".freeze
     DIMENSIONS = 1536
     BATCH_SIZE = 96
+    MAX_RETRIES = 3
+    TRANSIENT_ERRORS = [ Faraday::TimeoutError, Faraday::ConnectionFailed, Net::ReadTimeout, Net::OpenTimeout ].freeze
 
     # connection is injectable for tests (a fake Faraday-like object).
     def initialize(connection: nil)
@@ -30,12 +32,16 @@ module Openai
       @connection ||= Openai::ClientFactory.connection
     end
 
-    def request_batch(batch)
+    def request_batch(batch, attempt = 0)
       response = conn.post("/v1/embeddings", { model: MODEL, input: batch })
       unless response.success?
         raise Openai::Error, "OpenAI embeddings request failed (#{response.status}): #{response.body}"
       end
       Array(response.body["data"]).sort_by { |d| d["index"] }.map { |d| d["embedding"] }
+    rescue *TRANSIENT_ERRORS => e
+      raise Openai::Error, "OpenAI embeddings timed out after #{MAX_RETRIES} retries: #{e.message}" if attempt >= MAX_RETRIES
+      sleep(2**attempt)
+      request_batch(batch, attempt + 1)
     end
   end
 end

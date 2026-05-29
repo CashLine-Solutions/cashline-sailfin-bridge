@@ -87,6 +87,8 @@ module Mapping
       assessment.role_note = note if note
       assessment.disposition = disposition if disposition
       assessment.disposition_reason = result["disposition_reason"].presence
+      assessment.confidence = result["confidence"].to_f if result.key?("confidence")
+      assessment.model = @client.model if @client.respond_to?(:model)
       assessment.assessed_at = Time.current
       assessment.save!
     end
@@ -107,7 +109,7 @@ module Mapping
           type: "object",
           properties: {
             target_id: { type: "string", enum: ids + [ "NO_MATCH" ], description: "id of the chosen candidate, or NO_MATCH" },
-            confidence: { type: "number", description: "0.0-1.0 confidence in the chosen match" },
+            confidence: { type: "number", description: "0.0-1.0 — your overall confidence in this assessment (the match/NO_MATCH decision AND the disposition); low values flag a case worth escalating to a stronger model" },
             rationale: { type: "string", description: "one sentence on the functional-role reasoning for the match" },
             evidence: { type: "array", items: { type: "string" }, description: "the specific field attributes that drove the decision" },
             role_note: { type: "string", description: "one or two sentences describing the SOURCE field's functional role in Sailfin: what it stores and its part in the object's purpose" },

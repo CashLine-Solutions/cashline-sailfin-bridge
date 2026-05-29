@@ -28,7 +28,7 @@ module Openai
         f.response :json
         f.headers["Authorization"] = "Bearer #{credentials.fetch(:api_key)}"
         f.headers["OpenAI-Organization"] = credentials[:organization] if credentials[:organization].present?
-        f.options.timeout = 30
+        f.options.timeout = 120
         f.options.open_timeout = 10
       end
     end

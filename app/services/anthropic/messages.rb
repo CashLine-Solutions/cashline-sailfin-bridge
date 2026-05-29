@@ -12,6 +12,8 @@ module Anthropic
       @model = model
     end
 
+    attr_reader :model
+
     def available?
       Anthropic::ClientFactory.configured?
     end

@@ -261,7 +261,9 @@ CREATE TABLE public.field_assessments (
     disposition_reason text,
     assessed_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    model character varying,
+    confidence double precision
 );
 
 
@@ -2107,6 +2109,7 @@ ALTER TABLE ONLY public.clusters
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260529130000'),
 ('20260529120000'),
 ('20260528000007'),
 ('20260528000006'),
