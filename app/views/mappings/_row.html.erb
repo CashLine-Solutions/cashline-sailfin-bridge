@@ -18,7 +18,7 @@
     data-has-target="<%= row.target_label.present? %>"
     <% if value_mappable %>data-controller="expandable" data-expandable-frame-id-value="<%= dom %>_values" data-expandable-frame-url-value="<%= mapping_values_path(row.entry) %>"<% end %>>
 
-  <td class="px-3 py-2 text-slate-700" data-sort-value="<%= row.data_group_sort_value %>">
+  <td class="px-2 py-1.5 text-slate-700" data-sort-value="<%= row.data_group_sort_value %>">
     <%= row.data_group_label %>
     <% if editable %>
       <% if row.net_new? || row.entry %>
@@ -34,11 +34,11 @@
     <% end %>
   </td>
 
-  <td class="px-3 py-2 text-slate-700" data-sort-value="<%= row.sobject_name %>">
+  <td class="px-2 py-1.5 text-slate-700" data-sort-value="<%= row.sobject_name %>">
     <%= row.sobject_name || content_tag(:span, "(no source)", class: "text-slate-400 italic") %>
   </td>
 
-  <td class="px-3 py-2 font-mono text-xs" data-sort-value="<%= row.field_name %>">
+  <td class="px-2 py-1.5 font-mono text-xs" data-sort-value="<%= row.field_name %>">
     <% if value_mappable %>
       <button type="button" data-action="click->expandable#toggle"
               class="mr-1 inline-block w-3 text-slate-400 hover:text-slate-900"
@@ -56,7 +56,7 @@
     <% end %>
   </td>
 
-  <td class="px-3 py-2" data-sort-value="<%= row.disposition %>">
+  <td class="px-2 py-1.5" data-sort-value="<%= row.disposition %>">
     <% if row.disposition %>
       <% disp_cls = { "keep" => "bg-emerald-100 text-emerald-800", "need_in_cashline" => "bg-amber-100 text-amber-800", "sync_reference" => "bg-indigo-100 text-indigo-800", "discard" => "bg-slate-200 text-slate-500" }[row.disposition] %>
       <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap <%= disp_cls %>"
@@ -67,14 +67,14 @@
   </td>
 
   <% fp = row.field_profile %>
-  <td class="px-3 py-2 text-slate-700" data-sort-value="<%= fp&.null_rate ? (1 - fp.null_rate).round(4) : nil %>">
+  <td class="px-2 py-1.5 text-slate-700" data-sort-value="<%= fp&.null_rate ? (1 - fp.null_rate).round(4) : nil %>">
     <% if fp&.null_rate %>
       <%= "#{((1 - fp.null_rate) * 100).round(1)}% pop" %>
       <span class="text-slate-400">· <%= fp.distinct_count || "—" %> distinct</span>
     <% else %>—<% end %>
   </td>
 
-  <td class="px-3 py-2 text-xs text-slate-600 align-top" style="max-width: 22rem;">
+  <td class="px-2 py-1.5 text-xs text-slate-600 align-top" style="max-width: 13rem;">
     <% if row.role_note.present? %>
       <%= row.role_note %>
     <% else %>
@@ -82,7 +82,7 @@
     <% end %>
   </td>
 
-  <td class="px-3 py-2" data-sort-value="<%= row.mapping_type %>">
+  <td class="px-2 py-1.5" data-sort-value="<%= row.mapping_type %>">
     <% if editable %>
       <select name="mapping_entry[mapping_type]" form="<%= form_id %>" class="<%= input_cls %>"
               data-action="change->mapping-target#submit">
@@ -96,7 +96,7 @@
     <% end %>
   </td>
 
-  <td class="px-3 py-2">
+  <td class="px-2 py-1.5">
     <% if editable %>
       <input type="text" list="cashline-targets" name="mapping_entry[target]" form="<%= form_id %>"
              value="<%= row.target_label %>" placeholder="Class#field"
@@ -110,7 +110,7 @@
     <% end %>
   </td>
 
-  <td class="px-3 py-2" data-sort-value="<%= row.confidence %>">
+  <td class="px-2 py-1.5" data-sort-value="<%= row.confidence %>">
     <% if editable %>
       <select name="mapping_entry[confidence]" form="<%= form_id %>" class="<%= input_cls %>"
               data-action="change->mapping-target#submit">
@@ -124,7 +124,7 @@
     <% end %>
   </td>
 
-  <td class="px-3 py-2" data-sort-value="<%= row.reviewed? ? 1 : 0 %>">
+  <td class="px-2 py-1.5" data-sort-value="<%= row.reviewed? ? 1 : 0 %>">
     <% if editable %>
       <input type="hidden" name="mapping_entry[reviewed]" value="0" form="<%= form_id %>">
       <input type="checkbox" name="mapping_entry[reviewed]" value="1" form="<%= form_id %>"
@@ -135,7 +135,7 @@
     <% end %>
   </td>
 
-  <td class="px-3 py-2">
+  <td class="px-2 py-1.5">
     <% if editable %>
       <input type="text" name="mapping_entry[transformation_note]" form="<%= form_id %>"
              value="<%= row.entry&.transformation_note %>" placeholder="note"
@@ -146,7 +146,7 @@
     <% end %>
   </td>
 
-  <td class="px-3 py-2">
+  <td class="px-2 py-1.5">
     <%# Suggest-button slot (Unit 9). Suppressed on already-reviewed rows. %>
     <% proposals = row.sfield ? Array(local_assigns.fetch(:proposals_by_field, {})[row.sfield.id]) : [] %>
     <% rejected = row.sfield ? Array(local_assigns.fetch(:rejected_proposals_by_field, {})[row.sfield.id]) : [] %>

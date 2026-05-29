@@ -110,7 +110,15 @@
   <% end %>
 
   <div class="mb-2 flex items-center justify-between">
-    <p class="text-xs text-slate-500"><%= pluralize(@rows.size, "edge") %> shown</p>
+    <p class="text-xs text-slate-500">
+      <% filtered = @rows.size != @total_count %>
+      <% if filtered %>
+        <span class="font-semibold text-slate-700"><%= number_with_delimiter(@rows.size) %></span>
+        of <%= number_with_delimiter(@total_count) %> edges shown (filtered)
+      <% else %>
+        <span class="font-semibold text-slate-700"><%= number_with_delimiter(@total_count) %></span> edges
+      <% end %>
+    </p>
     <% if @snapshot && (Current.user&.analyst? || Current.user&.admin?) %>
       <%= button_to "Compute suggestions", compute_suggestions_mappings_path, method: :post,
             class: "rounded bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5",

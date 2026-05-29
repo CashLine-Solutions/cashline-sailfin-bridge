@@ -42,8 +42,10 @@
             <% if flash[:alert] %><div class="flash-alert"><%= flash[:alert] %></div><% end %>
           </div>
         <% end %>
-        <%# Views can opt into full right-panel width via content_for(:full_width). %>
-        <main class="<%= content_for?(:full_width) ? "px-4 sm:px-6 py-8" : "max-w-7xl mx-auto px-4 sm:px-6 py-8" %>">
+        <%# Views can opt into full right-panel width via content_for(:full_width).
+            Full-width pages drop the *right* padding so the content sits flush with
+            the right edge (no visible bg-slate-50 strip next to the scrollbar). %>
+        <main class="<%= content_for?(:full_width) ? "pl-4 sm:pl-6 py-8" : "max-w-7xl mx-auto px-4 sm:px-6 py-8" %>">
           <%= yield %>
         </main>
       </div>

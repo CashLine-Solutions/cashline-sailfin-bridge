@@ -22,7 +22,9 @@ class MappingsController < ApplicationController
     @open_proposals_by_field = open_proposals_by_field
     @rejected_proposals_by_field = rejected_proposals_by_field
     @suggested_field_ids = @open_proposals_by_field.keys
-    @rows = apply_filters(build_rows.sort_by(&:sort_key))
+    all_rows = build_rows.sort_by(&:sort_key)
+    @total_count = all_rows.size
+    @rows = apply_filters(all_rows)
 
     respond_to do |format|
       format.html
