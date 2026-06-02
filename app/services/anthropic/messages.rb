@@ -19,11 +19,19 @@ module Anthropic
     end
 
     # Forces `tool` and returns its parsed input hash (the structured result).
-    def tool_call(system:, user:, tool:, max_tokens: DEFAULT_MAX_TOKENS)
+    #
+    # cache_key: when non-nil, marks the stable prefix (tools + system) as
+    # cacheable via Anthropic's ephemeral prompt cache. Cache reads are ~10% of
+    # normal token cost. The key string itself is unused on the wire (Anthropic
+    # keys by prefix content) — it's a caller-side label so the same prefix is
+    # reused intentionally. Cache lifetime is 5 min, refreshed on each hit;
+    # prefixes under the model's minimum cacheable size (~1024 tokens for
+    # opus/sonnet) silently skip caching.
+    def tool_call(system:, user:, tool:, max_tokens: DEFAULT_MAX_TOKENS, cache_key: nil)
       body = {
         model: @model,
         max_tokens: max_tokens,
-        system: system,
+        system: cache_key ? [ { type: "text", text: system, cache_control: { type: "ephemeral" } } ] : system,
         messages: [ { role: "user", content: user } ],
         tools: [ tool ],
         tool_choice: { type: "tool", name: tool[:name] }

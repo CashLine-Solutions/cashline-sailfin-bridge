@@ -18,13 +18,20 @@ module Openai
       Openai::ClientFactory.configured?
     end
 
-    def tool_call(system:, user:, tool:)
+    # cache_key: optional caller-side label forwarded as `prompt_cache_key`.
+    # OpenAI's prompt cache is automatic on prompts >=1024 tokens (gpt-4o family
+    # and newer); the key just helps the router send same-prefix requests to the
+    # same backend, improving hit rate. The stable prefix (system + tool) is
+    # already first in the message order, so caching takes effect with or
+    # without the key.
+    def tool_call(system:, user:, tool:, cache_key: nil)
       body = {
         model: @model,
         messages: [ { role: "system", content: system }, { role: "user", content: user } ],
         tools: [ { type: "function", function: { name: tool[:name], description: tool[:description], parameters: tool[:input_schema] } } ],
         tool_choice: { type: "function", function: { name: tool[:name] } }
       }
+      body[:prompt_cache_key] = cache_key if cache_key
 
       response = conn.post("/v1/chat/completions", body)
       unless response.success?

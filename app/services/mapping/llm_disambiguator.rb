@@ -51,7 +51,8 @@ module Mapping
       result = @client.tool_call(
         system: system_prompt,
         user: user_prompt(target_class, target_field, proposals),
-        tool: decision_tool(ids)
+        tool: decision_tool(ids),
+        cache_key: "mapping/disambiguator/v1"
       )
       winner = result["source_id"].to_s
 

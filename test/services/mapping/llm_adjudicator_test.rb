@@ -7,8 +7,8 @@ module Mapping
       attr_reader :calls
       def initialize(result); @result = result; @calls = []; end
       def available? = true
-      def tool_call(system:, user:, tool:)
-        @calls << { system: system, user: user, tool: tool }
+      def tool_call(system:, user:, tool:, cache_key: nil)
+        @calls << { system: system, user: user, tool: tool, cache_key: cache_key }
         @result
       end
     end

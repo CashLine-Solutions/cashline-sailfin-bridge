@@ -44,7 +44,8 @@ module Mapping
       result = @client.tool_call(
         system: system_prompt,
         user: user_prompt(sfield, shuffled),
-        tool: decision_tool(ids)
+        tool: decision_tool(ids),
+        cache_key: "mapping/adjudicator/v1"
       )
       apply_decision(sfield, shuffled, result)
       true

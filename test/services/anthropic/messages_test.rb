@@ -36,6 +36,21 @@ module Anthropic
       assert_equal({ type: "tool", name: "record_match" }, conn.last_body[:tool_choice])
     end
 
+    test "tool_call passes system as plain string when cache_key is omitted" do
+      conn = FakeConn.new(FakeResponse.new(true, 200, { "content" => [ { "type" => "tool_use", "input" => {} } ] }))
+      Messages.new(connection: conn).tool_call(system: "stable instructions", user: "u", tool: TOOL)
+
+      assert_equal "stable instructions", conn.last_body[:system]
+    end
+
+    test "tool_call wraps system in cache-controlled content block when cache_key is set" do
+      conn = FakeConn.new(FakeResponse.new(true, 200, { "content" => [ { "type" => "tool_use", "input" => {} } ] }))
+      Messages.new(connection: conn).tool_call(system: "stable instructions", user: "u", tool: TOOL, cache_key: "label")
+
+      assert_equal [ { type: "text", text: "stable instructions", cache_control: { type: "ephemeral" } } ],
+                   conn.last_body[:system]
+    end
+
     test "tool_call raises on a non-success response" do
       conn = FakeConn.new(FakeResponse.new(false, 429, { "error" => "rate_limited" }))
       assert_raises(Anthropic::Error) { Messages.new(connection: conn).tool_call(system: "s", user: "u", tool: TOOL) }
