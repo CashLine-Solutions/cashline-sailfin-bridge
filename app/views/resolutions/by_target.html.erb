@@ -1,0 +1,121 @@
+<% content_for(:title, "Cashline coverage") %>
+<% content_for(:full_width, true) %>
+
+<%= render "shared/page_header",
+      eyebrow: "Resolution",
+      title: "Cashline coverage",
+      subtitle: "One row per cashline column. What's filling it — or what to do about it." do %>
+  <%= render "view_switcher", current: :target %>
+<% end %>
+
+<%# Status chips — counts are pre-filter so the chip values are stable. %>
+<% chip_on = "rounded bg-slate-900 text-white px-3 py-1 text-xs font-medium" %>
+<% chip_off = "rounded border border-slate-300 bg-white text-slate-700 hover:border-slate-500 px-3 py-1 text-xs" %>
+<% base = { class_name: params[:class_name] }.compact_blank %>
+<% toggle = ->(key, val) { params[key].to_s == val.to_s ? base.except(key) : base.merge(key => val) } %>
+
+<div class="mb-4 space-y-2">
+  <div class="flex flex-wrap items-center gap-2 text-xs">
+    <span class="text-slate-500 font-medium">Status:</span>
+    <% TargetFieldCoverage::STATUSES.each do |s| %>
+      <% next if @status_counts[s].to_i.zero? %>
+      <% label = s.tr("_", "-").capitalize %>
+      <%= link_to "#{label} #{@status_counts[s]}", resolutions_by_target_path(toggle.call(:status, s)),
+            class: (params[:status] == s ? chip_on : chip_off) %>
+    <% end %>
+    <% if params[:status].present? %>
+      <%= link_to "× clear", resolutions_by_target_path(base.except(:status)),
+            class: "text-rose-600 hover:text-rose-800 ml-1 underline text-xs" %>
+    <% end %>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2 text-xs">
+    <span class="text-slate-500 font-medium">Class:</span>
+    <%= form_with url: resolutions_by_target_path, method: :get, local: true, class: "inline-flex items-center gap-2" do %>
+      <% params.permit(:status).to_h.each { |k, v| %><%= hidden_field_tag k, v %><% } %>
+      <%= select_tag :class_name,
+            options_for_select([[ "All classes", "" ]] + @class_options.map { |c| [ c, c ] }, params[:class_name]),
+            onchange: "this.form.submit()",
+            class: "rounded border border-slate-300 text-xs py-0.5 px-2" %>
+    <% end %>
+  </div>
+</div>
+
+<div class="mb-2 flex items-center justify-between">
+  <p class="text-xs text-slate-500">
+    <% filtered = @rows.size != @total_count %>
+    <% if filtered %>
+      <span class="font-semibold text-slate-700"><%= number_with_delimiter(@rows.size) %></span>
+      of <%= number_with_delimiter(@total_count) %> cashline columns (filtered)
+    <% else %>
+      <span class="font-semibold text-slate-700"><%= number_with_delimiter(@total_count) %></span> cashline columns
+    <% end %>
+  </p>
+</div>
+
+<div class="rounded-l border-y border-l border-slate-200 bg-white">
+  <table class="min-w-full divide-y divide-slate-200 text-sm">
+    <thead class="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
+      <tr>
+        <th class="sticky top-0 z-10 bg-slate-100 px-2 py-1.5">Status</th>
+        <th class="sticky top-0 z-10 bg-slate-100 px-2 py-1.5">Class</th>
+        <th class="sticky top-0 z-10 bg-slate-100 px-2 py-1.5">Field</th>
+        <th class="sticky top-0 z-10 bg-slate-100 px-2 py-1.5">Type</th>
+        <th class="sticky top-0 z-10 bg-slate-100 px-2 py-1.5">Fed by</th>
+        <th class="sticky top-0 z-10 bg-slate-100 px-2 py-1.5"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      <% if @rows.empty? %>
+        <tr><td colspan="6" class="px-3 py-6 text-center text-slate-500">Nothing matches these filters.</td></tr>
+      <% else %>
+        <% @rows.each do |row| %>
+          <% edit_url = mappings_path(snapshot: @snapshot&.id,
+                                       target_class: row.target_class,
+                                       target_field: row.target_field) %>
+          <tr id="<%= row.dom_id %>" class="hover:bg-slate-50">
+            <td class="px-2 py-1.5 whitespace-nowrap">
+              <%= link_to edit_url, class: "block", title: "Edit on /mappings" do %>
+                <span class="inline-flex items-center gap-1 rounded bg-<%= row.status_color %>-100 text-<%= row.status_color %>-800 px-2 py-0.5 text-xs font-medium">
+                  <%= row.status_label %>
+                  <% if row.feeder_count > 1 && row.status == "filled" %>
+                    · <%= row.feeder_count %>
+                  <% end %>
+                </span>
+              <% end %>
+            </td>
+            <td class="px-2 py-1.5 font-mono text-xs text-slate-700"><%= link_to row.target_class, edit_url, class: "hover:underline" %></td>
+            <td class="px-2 py-1.5 font-mono text-xs text-slate-900"><%= link_to row.target_field, edit_url, class: "hover:underline" %></td>
+            <td class="px-2 py-1.5 text-xs text-slate-500"><%= row.column_type %></td>
+            <td class="px-2 py-1.5">
+              <% if row.feeders.any? %>
+                <div class="flex flex-wrap gap-1">
+                  <% row.feeders.each do |chip| %>
+                    <span class="inline-block rounded bg-slate-100 text-slate-700 px-1.5 py-0.5 text-xs font-mono"><%= chip %></span>
+                  <% end %>
+                  <% if row.status == "candidate" && row.feeder_count > row.feeders.size %>
+                    <span class="text-xs text-slate-500">+ <%= row.feeder_count - row.feeders.size %> more</span>
+                  <% end %>
+                </div>
+              <% else %>
+                <span class="text-xs text-slate-400 italic">—</span>
+              <% end %>
+            </td>
+            <td class="px-2 py-1.5 text-right whitespace-nowrap">
+              <% if row.status == "candidate" && row.visible_candidates.first %>
+                <%= button_to "Accept", resolutions_accept_candidate_path,
+                      method: :post,
+                      params: { target_class: row.target_class, target_field: row.target_field, snapshot: @snapshot&.id },
+                      class: "rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2 py-0.5",
+                      data: { turbo_confirm: "Commit #{row.feeders.first} → #{row.target_class}.#{row.target_field}?" },
+                      form: { class: "inline-block", data: { turbo: false } } %>
+              <% else %>
+                <%= link_to "Edit", edit_url, class: "text-xs text-blue-700 hover:underline" %>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      <% end %>
+    </tbody>
+  </table>
+</div>

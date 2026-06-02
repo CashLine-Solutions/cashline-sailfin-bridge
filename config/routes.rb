@@ -30,6 +30,14 @@ Rails.application.routes.draw do
     end
   end
 
+  # Field-level resolution views — complements the edge-per-row mapping grid.
+  # by_source: one row per Sailfin field, showing its fate (disposition + targets).
+  # by_target: one row per cashline column, showing what feeds it (coverage view).
+  get "resolutions/by_source" => "resolutions#by_source", as: :resolutions_by_source
+  get "resolutions/by_target" => "resolutions#by_target", as: :resolutions_by_target
+  post "resolutions/accept_candidate" => "resolutions#accept_candidate", as: :resolutions_accept_candidate
+  get "resolutions" => redirect("/resolutions/by_target"), as: :resolutions
+
   resources :erds, only: [ :index, :show ], param: :slug, constraints: { slug: %r{[^/.]+} }
   resources :clusters, only: [] do
     collection { get :edit }

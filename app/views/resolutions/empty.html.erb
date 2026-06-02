@@ -1,0 +1,16 @@
+<% content_for(:title, "Resolutions") %>
+
+<%= render "shared/page_header",
+      eyebrow: "Resolution",
+      title: "Resolutions",
+      subtitle: "How each Sailfin field resolves into cashline — disposition, shape, and target set." %>
+
+<div class="rounded border border-dashed border-slate-300 p-10 text-center bg-white">
+  <% if @run.nil? %>
+    <p class="text-slate-700">Pick a Sailfin run to begin. <%= link_to "Runs", runs_path, class: "text-blue-700 underline" %>.</p>
+  <% else %>
+    <p class="text-slate-700">Load a cashline snapshot to see coverage.
+      Export from cashline-platform (<span class="font-mono text-xs">bin/rails cashline:export_schema</span>)
+      then load (<span class="font-mono text-xs">bin/rails cashline:load_snapshot FILE=…</span>).</p>
+  <% end %>
+</div>

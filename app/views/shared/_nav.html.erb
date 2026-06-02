@@ -4,13 +4,14 @@
       controllers) still highlight the section. %>
   <% current_section = controller_name %>
   <% nav_items = [
-       ["Runs",      :runs_path,               %w[runs]],
-       ["Objects",   :objects_path,            %w[objects]],
-       ["Mappings",  :mappings_path,           %w[mappings mapping_value_entries mapping_proposals]],
-       ["ERDs",      :erds_path,               %w[erds]],
-       ["Visualize", :visualizations_path,     %w[visualizations]],
-       ["Reports",   :reports_hub_orphan_path, %w[reports]],
-       ["Diff",      :new_diff_path,           %w[diffs]]
+       ["Runs",        :runs_path,               %w[runs]],
+       ["Objects",     :objects_path,            %w[objects]],
+       ["Resolutions", :resolutions_path,        %w[resolutions]],
+       ["Mappings",    :mappings_path,           %w[mappings mapping_value_entries mapping_proposals]],
+       ["ERDs",        :erds_path,               %w[erds]],
+       ["Visualize",   :visualizations_path,     %w[visualizations]],
+       ["Reports",     :reports_hub_orphan_path, %w[reports]],
+       ["Diff",        :new_diff_path,           %w[diffs]]
      ] %>
 
   <aside class="sticky top-0 h-screen w-56 shrink-0 overflow-y-auto bg-white border-r border-slate-200 flex flex-col">

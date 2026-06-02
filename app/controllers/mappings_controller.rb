@@ -187,6 +187,22 @@ class MappingsController < ApplicationController
     rows = rows.select(&:gap?) if params[:gap] == "1"
     rows = rows.select { |r| !r.reviewed? && r.high_population? && !r.net_new? } if params[:worklist] == "1"
     rows = rows.select { |r| r.sfield && @suggested_field_ids.include?(r.sfield.id) } if params[:has_suggestion] == "1"
+    # target_class + target_field filter — deep-linked from the cashline coverage
+    # view ("show me everything pointed at this cashline column").
+    if params[:target_class].present? && params[:target_field].present?
+      proposals_at_target = if @snapshot
+        MappingProposal.open.for_session(@snapshot.id)
+          .where(target_class: params[:target_class], target_field: params[:target_field])
+          .pluck(:source_field_id).to_set
+      else
+        Set.new
+      end
+      rows = rows.select do |r|
+        entry_matches = r.entry && r.entry.target_class == params[:target_class] && r.entry.target_field == params[:target_field]
+        proposal_matches = r.sfield && proposals_at_target.include?(r.sfield.id)
+        entry_matches || proposal_matches
+      end
+    end
     rows
   end
 
