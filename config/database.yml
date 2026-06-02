@@ -52,20 +52,19 @@ test:
     migrations_paths: db/audit_migrate
 
 production:
-  primary: &primary_production
+  # Render (and any managed Postgres) injects connection strings as env vars.
+  # render.yaml maps each provisioned DB to PRIMARY/CACHE/AUDIT_DATABASE_URL.
+  # The audit DB uses the same role as primary in deployed envs — the
+  # writer-only role separation (lib/tasks/audit.rake) requires superuser
+  # access that Render doesn't grant. Hardening tracked separately.
+  primary:
     <<: *default
-    database: cashline_ontology_production
-    username: cashline_ontology
-    password: <%= ENV["CASHLINE_ONTOLOGY_DATABASE_PASSWORD"] %>
+    url: <%= ENV["PRIMARY_DATABASE_URL"] %>
   cache:
-    <<: *primary_production
-    database: cashline_ontology_production_cache
+    <<: *default
+    url: <%= ENV["CACHE_DATABASE_URL"] %>
     migrations_paths: db/cache_migrate
   audit:
-    <<: *primary_production
-    database: cashline_ontology_production_audit
+    <<: *default
+    url: <%= ENV["AUDIT_DATABASE_URL"] %>
     migrations_paths: db/audit_migrate
-    # Runtime connects as the writer role (INSERT-only). Migrations are run
-    # separately via the owner role — see lib/tasks/audit.rake.
-    username: <%= ENV.fetch("CASHLINE_AUDIT_WRITER_USERNAME", "cashline_audit_writer") %>
-    password: <%= ENV["CASHLINE_AUDIT_WRITER_PASSWORD"] %>

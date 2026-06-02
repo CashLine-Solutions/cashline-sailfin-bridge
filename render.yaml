@@ -1,0 +1,155 @@
+# Render Blueprint for cashline-sailfin-bridge (formerly cashline-ontology).
+#
+# Apply via Render dashboard: New → Blueprint → connect this repo.
+# Render reads this file from the repo root and provisions everything below.
+#
+# ────────────────────────────────────────────────────────────────────────────
+# Before first deploy, set the following secrets in the Render dashboard
+# (Environment → Add Environment Variable, scoped to each service that needs
+# it). render.yaml does NOT commit secret values.
+#
+#   RAILS_MASTER_KEY      — contents of config/master.key (local-only file).
+#                           Required for both web and worker. Unlocks
+#                           config/credentials/production.yml.enc which holds
+#                           Salesforce JWT keys, Anthropic + OpenAI API keys.
+#
+# Optional overrides (only if you opt out of credentials):
+#   OPENAI_API_KEY        — bypasses credentials.openai.api_key
+#   ANTHROPIC_API_KEY     — bypasses credentials.anthropic.api_key
+#
+# ────────────────────────────────────────────────────────────────────────────
+# Postgres notes
+#
+# The app uses three logical databases (primary / cache / audit). This
+# blueprint provisions them as three separate Postgres instances for clean
+# isolation and simple URL wiring. Costs ~3 × Starter tier.
+#
+# Cheaper alternative (not done here): one Postgres instance + three logical
+# databases inside it. Requires either Render's user to have CREATEDB
+# privilege (verify in dashboard) or a manual `CREATE DATABASE` step via
+# Render's psql. If you want to consolidate later, change `databases:` to one
+# entry and override CACHE_DATABASE_URL + AUDIT_DATABASE_URL to point at the
+# same host with different database paths.
+#
+# pgvector: the primary DB uses the `vector` extension (embedding cache).
+# Render's managed Postgres supports pgvector — extension is created by the
+# Rails migration `EnableVectorExtension`, run automatically as part of
+# `db:prepare` on first boot. If the migration fails with a permissions
+# error, run once manually via Render's psql:  CREATE EXTENSION vector;
+#
+# ────────────────────────────────────────────────────────────────────────────
+# Audit-role separation
+#
+# In production-grade deploys the audit DB runs under a writer role with
+# INSERT-only privileges (see lib/tasks/audit.rake). That setup requires a
+# Postgres superuser, which Render does not grant. For the staging workbench
+# we connect to the audit DB with the same user as primary — the defense-in-
+# depth is documented as a future hardening step. To enable it later, run
+# audit:provision_roles via Render's psql while connected as the cluster's
+# `postgres` admin user (available on paid plans through their console).
+
+databases:
+  - name: cashline-bridge-primary
+    databaseName: cashline_bridge_primary
+    user: cashline
+    plan: starter           # 256 MB RAM / 1 GB storage; bump later as needed
+    region: oregon          # match cashline-platform's region if different
+    postgresMajorVersion: "16"
+    # pgvector is enabled by the migration `EnableVectorExtension`.
+
+  - name: cashline-bridge-cache
+    databaseName: cashline_bridge_cache
+    user: cashline
+    plan: starter
+    region: oregon
+    postgresMajorVersion: "16"
+
+  - name: cashline-bridge-audit
+    databaseName: cashline_bridge_audit
+    user: cashline
+    plan: starter
+    region: oregon
+    postgresMajorVersion: "16"
+
+services:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Web — Puma + Thruster, serves the workbench UI and the inline GoodJob
+  # dashboard. Background-job execution happens in the worker service below,
+  # not in-process here.
+  - type: web
+    name: cashline-sailfin-bridge
+    runtime: docker
+    plan: starter            # 512 MB RAM / 0.5 CPU; bump if extraction jobs squeeze it
+    region: oregon
+    branch: main
+    healthCheckPath: /up
+    autoDeploy: true
+    # Runs after build, before traffic shifts to the new instance. Idempotent
+    # — db:prepare creates databases if absent then runs pending migrations.
+    # Migrates all three DBs (primary / cache / audit) via the per-database
+    # migrations_paths in config/database.yml.
+    preDeployCommand: bundle exec rails db:prepare
+    envVars:
+      - key: RAILS_ENV
+        value: production
+      - key: RAILS_LOG_TO_STDOUT
+        value: "true"
+      - key: RAILS_SERVE_STATIC_FILES
+        value: "true"
+      - key: WEB_CONCURRENCY
+        value: "2"
+      - key: RAILS_MAX_THREADS
+        value: "5"
+      - key: GOOD_JOB_EXECUTION_MODE
+        value: external       # web does not run jobs; worker service does
+      - key: RAILS_MASTER_KEY
+        sync: false           # set manually in dashboard
+      - key: PRIMARY_DATABASE_URL
+        fromDatabase:
+          name: cashline-bridge-primary
+          property: connectionString
+      - key: CACHE_DATABASE_URL
+        fromDatabase:
+          name: cashline-bridge-cache
+          property: connectionString
+      - key: AUDIT_DATABASE_URL
+        fromDatabase:
+          name: cashline-bridge-audit
+          property: connectionString
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Worker — runs GoodJob's executor process. Extraction / profiling / LLM
+  # adjudication / future sync jobs all live here, never blocking web threads.
+  - type: worker
+    name: cashline-sailfin-bridge-jobs
+    runtime: docker
+    plan: starter            # bump to standard when Sailfin extract runs land
+    region: oregon
+    branch: main
+    autoDeploy: true
+    dockerCommand: bundle exec good_job start
+    envVars:
+      - key: RAILS_ENV
+        value: production
+      - key: RAILS_LOG_TO_STDOUT
+        value: "true"
+      - key: GOOD_JOB_EXECUTION_MODE
+        value: external
+      - key: GOOD_JOB_QUEUES
+        value: "*"            # all queues; tighten if we add priority lanes
+      - key: GOOD_JOB_MAX_THREADS
+        value: "3"            # BulkV2Runner caps org-wide to 3 anyway
+      - key: RAILS_MASTER_KEY
+        sync: false
+      - key: PRIMARY_DATABASE_URL
+        fromDatabase:
+          name: cashline-bridge-primary
+          property: connectionString
+      - key: CACHE_DATABASE_URL
+        fromDatabase:
+          name: cashline-bridge-cache
+          property: connectionString
+      - key: AUDIT_DATABASE_URL
+        fromDatabase:
+          name: cashline-bridge-audit
+          property: connectionString
