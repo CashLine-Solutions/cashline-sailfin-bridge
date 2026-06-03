@@ -20,6 +20,13 @@ module Salesforce
   # lifetime by CreatedDate and pull a small slice from one or more windows.
   # The bias (samples cluster by time window) is documented in the manifest.
   class BulkV2Runner
+    # Bound each results page so multi-million-row objects don't come back as a
+    # single huge CSV body. Without this, Salesforce can return the entire
+    # result set in one page; CSV.parse then builds millions of row hashes at
+    # once and the process GC-thrashes (observed: a 2.18M-row object spinning
+    # ~90 min at 21% CPU with no network/DB activity). 50k rows/page keeps
+    # per-page memory bounded while still streaming the full set via the locator.
+    RESULTS_PAGE_SIZE = 50_000
     POLL_INTERVAL = 5 # seconds; tests stub this to 0
     POLL_TIMEOUT = 30 * 60 # 30 minutes hard cap
     OPEN_TIMEOUT = 10  # seconds to establish TCP connection
@@ -94,8 +101,8 @@ module Salesforce
     def stream_results(job_id, on_chunk)
       locator = nil
       loop do
-        path = "/services/data/v#{Salesforce::API_VERSION}/jobs/query/#{job_id}/results"
-        path += "?locator=#{locator}" if locator
+        path = "/services/data/v#{Salesforce::API_VERSION}/jobs/query/#{job_id}/results?maxRecords=#{RESULTS_PAGE_SIZE}"
+        path += "&locator=#{locator}" if locator
 
         response = with_auth_retry { |token| connection(token).get(path) }
         rows = parse_csv(response.body)

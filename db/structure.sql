@@ -139,6 +139,44 @@ ALTER SEQUENCE public.clusters_id_seq OWNED BY public.clusters.id;
 
 
 --
+-- Name: data_exports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.data_exports (
+    id bigint NOT NULL,
+    extraction_run_id bigint NOT NULL,
+    object_api_name character varying NOT NULL,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
+    record_count integer DEFAULT 0 NOT NULL,
+    bulk_job_id character varying,
+    error text,
+    started_at timestamp(6) without time zone,
+    finished_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: data_exports_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.data_exports_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: data_exports_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.data_exports_id_seq OWNED BY public.data_exports.id;
+
+
+--
 -- Name: embedding_caches; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -664,6 +702,41 @@ ALTER SEQUENCE public.sessions_id_seq OWNED BY public.sessions.id;
 
 
 --
+-- Name: sf_records; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sf_records (
+    id bigint NOT NULL,
+    extraction_run_id bigint NOT NULL,
+    object_api_name character varying NOT NULL,
+    sf_id character varying NOT NULL,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    exported_at timestamp(6) without time zone NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: sf_records_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.sf_records_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: sf_records_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.sf_records_id_seq OWNED BY public.sf_records.id;
+
+
+--
 -- Name: sfields; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -921,6 +994,13 @@ ALTER TABLE ONLY public.clusters ALTER COLUMN id SET DEFAULT nextval('public.clu
 
 
 --
+-- Name: data_exports id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_exports ALTER COLUMN id SET DEFAULT nextval('public.data_exports_id_seq'::regclass);
+
+
+--
 -- Name: embedding_caches id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -998,6 +1078,13 @@ ALTER TABLE ONLY public.sessions ALTER COLUMN id SET DEFAULT nextval('public.ses
 
 
 --
+-- Name: sf_records id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sf_records ALTER COLUMN id SET DEFAULT nextval('public.sf_records_id_seq'::regclass);
+
+
+--
 -- Name: sfields id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1069,6 +1156,14 @@ ALTER TABLE ONLY public.cluster_assignments
 
 ALTER TABLE ONLY public.clusters
     ADD CONSTRAINT clusters_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: data_exports data_exports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_exports
+    ADD CONSTRAINT data_exports_pkey PRIMARY KEY (id);
 
 
 --
@@ -1208,6 +1303,14 @@ ALTER TABLE ONLY public.sessions
 
 
 --
+-- Name: sf_records sf_records_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sf_records
+    ADD CONSTRAINT sf_records_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: sfields sfields_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1330,6 +1433,20 @@ CREATE INDEX index_clusters_on_extraction_run_id ON public.clusters USING btree 
 --
 
 CREATE UNIQUE INDEX index_clusters_on_extraction_run_id_and_name ON public.clusters USING btree (extraction_run_id, name);
+
+
+--
+-- Name: index_data_exports_on_extraction_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_data_exports_on_extraction_run_id ON public.data_exports USING btree (extraction_run_id);
+
+
+--
+-- Name: index_data_exports_on_run_and_object; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_data_exports_on_run_and_object ON public.data_exports USING btree (extraction_run_id, object_api_name);
 
 
 --
@@ -1746,6 +1863,27 @@ CREATE INDEX index_sessions_on_user_id ON public.sessions USING btree (user_id);
 
 
 --
+-- Name: index_sf_records_on_extraction_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_sf_records_on_extraction_run_id ON public.sf_records USING btree (extraction_run_id);
+
+
+--
+-- Name: index_sf_records_on_run_and_object; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_sf_records_on_run_and_object ON public.sf_records USING btree (extraction_run_id, object_api_name);
+
+
+--
+-- Name: index_sf_records_on_run_object_sfid; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_sf_records_on_run_object_sfid ON public.sf_records USING btree (extraction_run_id, object_api_name, sf_id);
+
+
+--
 -- Name: index_sfields_on_api_name; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1887,6 +2025,14 @@ ALTER TABLE ONLY public.mapping_entries
 
 
 --
+-- Name: data_exports fk_rails_0454250393; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_exports
+    ADD CONSTRAINT fk_rails_0454250393 FOREIGN KEY (extraction_run_id) REFERENCES public.extraction_runs(id);
+
+
+--
 -- Name: field_profiles fk_rails_06ce0ffcd5; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1932,6 +2078,14 @@ ALTER TABLE ONLY public.field_profiles
 
 ALTER TABLE ONLY public.sobjects
     ADD CONSTRAINT fk_rails_31b28ecd97 FOREIGN KEY (extraction_run_id) REFERENCES public.extraction_runs(id);
+
+
+--
+-- Name: sf_records fk_rails_38b24dc6d9; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sf_records
+    ADD CONSTRAINT fk_rails_38b24dc6d9 FOREIGN KEY (extraction_run_id) REFERENCES public.extraction_runs(id);
 
 
 --
@@ -2109,6 +2263,7 @@ ALTER TABLE ONLY public.clusters
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260602000001'),
 ('20260529130000'),
 ('20260529120000'),
 ('20260528000007'),

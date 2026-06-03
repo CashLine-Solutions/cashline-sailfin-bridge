@@ -69,6 +69,23 @@ module Runs
       root.join("#{sanitize(object_api_name)}.jsonl")
     end
 
+    # Raw record-data backup lives under records/ so it does not collide with
+    # the per-object describe JSONL (and so content_digest, which globs *.jsonl
+    # at the run root, ignores it). One JSONL file per object: one line per row.
+    def records_dir
+      root.join("records")
+    end
+
+    def record_backup_path(object_api_name)
+      records_dir.join("#{sanitize(object_api_name)}.jsonl")
+    end
+
+    def ensure_records_dir!
+      FileUtils.mkdir_p(records_dir)
+      File.chmod(PERMS_SENSITIVE_DIR, records_dir) if sensitive?
+      records_dir
+    end
+
     def write_manifest!(payload)
       ensure!
       File.write(manifest_path, JSON.pretty_generate(payload))
