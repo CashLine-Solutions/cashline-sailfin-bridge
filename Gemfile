@@ -33,7 +33,7 @@ gem "faraday", "~> 2"
 # Bulk 2.0 returns query results as CSV; csv leaves the stdlib in Ruby 3.4.
 gem "csv", "~> 3.3"
 # Background jobs — GoodJob over Solid Queue for free concurrency-control keys (see plan Key Decisions)
-gem "good_job", "~> 4.16"
+gem "good_job", "~> 4.19"
 # Jobs dashboard in Rails 8
 gem "mission_control-jobs"
 # Policy-based authorization
