@@ -1,0 +1,6 @@
+<% classes = {
+     "high"   => "bg-emerald-100 text-emerald-800",
+     "medium" => "bg-amber-100 text-amber-800",
+     "low"    => "bg-rose-100 text-rose-800"
+   }[level] || "bg-slate-100 text-slate-600" %>
+<span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide <%= classes %>"><%= level %></span>

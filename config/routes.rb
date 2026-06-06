@@ -38,6 +38,19 @@ Rails.application.routes.draw do
   post "resolutions/accept_candidate" => "resolutions#accept_candidate", as: :resolutions_accept_candidate
   get "resolutions" => redirect("/resolutions/by_target"), as: :resolutions
 
+  # Customer grouping review queue — confirm/reject parent roll-ups detected from
+  # Sailfin Account names/structure before the importer applies them.
+  resources :customer_groupings, only: [ :index ], path: "grouping" do
+    collection { post :detect }
+    member do
+      post :confirm
+      post :reject
+      post :unreject
+      post :merge
+      post :unmerge
+    end
+  end
+
   resources :erds, only: [ :index, :show ], param: :slug, constraints: { slug: %r{[^/.]+} }
   resources :clusters, only: [] do
     collection { get :edit }

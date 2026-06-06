@@ -1,0 +1,134 @@
+<% content_for(:title, "Customer grouping") %>
+
+<div class="flex items-center justify-between mb-4">
+  <div>
+    <h1 class="text-2xl font-semibold">Customer grouping</h1>
+    <p class="text-sm text-slate-600 mt-1">
+      Candidate parent roll-ups detected from Sailfin Account names &amp; structure.
+      Confirm the ones that are one customer with multiple locations; reject the rest.
+    </p>
+  </div>
+  <% if @run %>
+    <%= button_to "Detect groupings", detect_customer_groupings_path(run: @run.id), method: :post,
+          class: "rounded bg-slate-900 text-white px-3 py-2 text-sm font-medium" %>
+  <% end %>
+</div>
+
+<% if @run.nil? %>
+  <p class="text-slate-700">No active run. Select a run to detect customer groupings.</p>
+<% else %>
+  <% if @account_count.zero? %>
+    <div class="rounded border border-amber-300 bg-amber-50 px-4 py-3 mb-5 text-sm text-amber-900">
+      The active run <span class="font-mono"><%= @run.directory_token %></span> has
+      <strong>no Account records</strong>, so there's nothing to group. Pick the run holding the
+      Sailfin Account download from <%= link_to "Runs", runs_path, class: "underline font-medium" %>.
+    </div>
+  <% else %>
+    <p class="text-xs text-slate-500 mb-4">
+      Scanning run <span class="font-mono text-slate-700"><%= @run.directory_token %></span>
+      · <%= number_with_delimiter(@account_count) %> Accounts
+    </p>
+  <% end %>
+  <% tabs = { "open" => "Needs review", "confirmed" => "Confirmed", "rejected" => "Rejected" } %>
+  <nav class="flex gap-1 border-b border-slate-200 mb-5">
+    <% tabs.each do |state, label| %>
+      <% active = @state == state %>
+      <%= link_to customer_groupings_path(state: state, run: @run.id),
+            class: "px-3 py-2 text-sm font-medium -mb-px border-b-2 #{active ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'}" do %>
+        <%= label %>
+        <span class="ml-1 text-xs text-slate-400"><%= @counts[state] || 0 %></span>
+      <% end %>
+    <% end %>
+  </nav>
+
+  <% if @total_in_state > @groupings.size %>
+    <p class="text-xs text-slate-500 mb-3">
+      Showing <%= number_with_delimiter(@groupings.size) %> of
+      <%= number_with_delimiter(@total_in_state) %> — refine by confirming/merging to work the list down.
+    </p>
+  <% end %>
+
+  <% if @groupings.empty? %>
+    <div class="rounded border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
+      <% if @counts.values.sum.zero? %>
+        No groupings yet. Click <span class="font-medium">Detect groupings</span> to scan this run's Accounts.
+      <% else %>
+        Nothing in “<%= tabs[@state] %>”.
+      <% end %>
+    </div>
+  <% else %>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <% @groupings.each do |g| %>
+        <div class="rounded border border-slate-200 bg-white p-4">
+          <div class="flex items-start justify-between gap-3 mb-2">
+            <div class="min-w-0">
+              <h2 class="font-semibold text-slate-900 truncate" title="<%= g.parent_name %>"><%= g.parent_name %></h2>
+              <div class="flex items-center gap-2 mt-1 text-xs">
+                <%= render "customer_groupings/confidence_badge", level: g.confidence %>
+                <% if g.state == "confirmed" && !g.user_modified %>
+                  <span class="inline-block rounded bg-slate-200 text-slate-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide" title="Auto-confirmed exact duplicate">auto</span>
+                <% end %>
+                <span class="text-slate-400">·</span>
+                <span class="text-slate-500"><%= g.member_count %> accounts</span>
+                <span class="text-slate-400">·</span>
+                <span class="font-mono text-slate-400"><%= g.detection_method %></span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <% if g.state == "open" %>
+                <%= button_to "Confirm", confirm_customer_grouping_path(g, return_state: @state, run: @run.id), method: :post,
+                      class: "rounded bg-emerald-600 text-white px-2.5 py-1 text-xs font-medium" %>
+                <%= button_to "Reject", reject_customer_grouping_path(g, return_state: @state, run: @run.id), method: :post,
+                      class: "rounded bg-slate-100 text-slate-700 px-2.5 py-1 text-xs" %>
+              <% elsif g.state == "confirmed" %>
+                <%= button_to "Reopen", unreject_customer_grouping_path(g, return_state: @state, run: @run.id), method: :post,
+                      class: "rounded bg-slate-100 text-slate-700 px-2.5 py-1 text-xs" %>
+              <% else %>
+                <%= button_to "Restore", unreject_customer_grouping_path(g, return_state: @state, run: @run.id), method: :post,
+                      class: "rounded bg-slate-100 text-slate-700 px-2.5 py-1 text-xs" %>
+              <% end %>
+            </div>
+          </div>
+          <% merged = g.merged_aliases.to_a %>
+          <% if merged.any? %>
+            <div class="flex flex-wrap items-center gap-1.5 mb-2 text-xs">
+              <span class="text-slate-400">merged from:</span>
+              <% merged.each do |a| %>
+                <span class="inline-flex items-center gap-1 rounded bg-indigo-50 text-indigo-700 px-1.5 py-0.5">
+                  <%= a.absorbed_display_name %>
+                  <%= button_to "×", unmerge_customer_grouping_path(g, alias_id: a.id, return_state: @state, run: @run.id),
+                        method: :post, form_class: "inline", data: { turbo_confirm: "Unmerge “#{a.absorbed_display_name}”?" },
+                        class: "leading-none text-indigo-500 hover:text-indigo-900", title: "Unmerge" %>
+                </span>
+              <% end %>
+            </div>
+          <% end %>
+
+          <ul class="mt-2 space-y-0.5 max-h-56 overflow-y-auto text-sm border-t border-slate-100 pt-2">
+            <% g.members.sort_by(&:account_name).each do |m| %>
+              <li class="flex items-center justify-between gap-2 py-0.5">
+                <span class="truncate text-slate-700" title="<%= m.account_name %>"><%= m.account_name %></span>
+                <span class="font-mono text-[10px] text-slate-400 shrink-0"><%= m.sailfin_account_id %></span>
+              </li>
+            <% end %>
+          </ul>
+
+          <%# Merge this grouping into another (same customer under a different
+              label). Typeahead backed by the shared datalist below. %>
+          <%= form_with url: merge_customer_grouping_path(g, return_state: @state, run: @run.id), method: :post,
+                class: "mt-3 flex items-center gap-1.5 border-t border-slate-100 pt-2" do %>
+            <span class="text-xs text-slate-400 shrink-0">Merge into</span>
+            <input type="text" name="target_name" list="grouping-names" placeholder="type a grouping name…"
+                   class="flex-1 min-w-0 text-xs rounded border-slate-300" autocomplete="off">
+            <%= submit_tag "Merge", class: "rounded bg-indigo-600 text-white px-2 py-1 text-xs shrink-0" %>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%# Shared options for every card's "merge into" typeahead — rendered once. %>
+  <datalist id="grouping-names">
+    <% @merge_targets.each do |name| %><option value="<%= name %>"></option><% end %>
+  </datalist>
+<% end %>

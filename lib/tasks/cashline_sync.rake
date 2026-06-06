@@ -11,4 +11,17 @@ namespace :cashline_sync do
     puts "Done:"
     stats.each { |k, v| puts "  #{k}: #{v}" }
   end
+
+  desc "Detect candidate customer groupings (parent roll-ups) from Sailfin " \
+       "Account names/structure for operator review. RUN=<extraction_run_id>"
+  task detect_groupings: :environment do
+    run_id = (ENV["RUN"].presence || SfRecord.where(object_api_name: "Account").pick(:extraction_run_id))&.to_i
+    abort "No extraction run with Account records found." unless run_id
+    run = ExtractionRun.find(run_id)
+
+    puts "Detecting customer groupings (run=#{run_id})..."
+    stats = Sync::CustomerGroupingDetector.call(run)
+    puts "Done:"
+    stats.each { |k, v| puts "  #{k}: #{v}" }
+  end
 end
