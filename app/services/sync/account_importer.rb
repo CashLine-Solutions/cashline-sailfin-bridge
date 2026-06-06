@@ -34,6 +34,7 @@ module Sync
       @client_orgs = {}        # sailfin Brand__c id => client_organization_id
       @customer_orgs = {}      # normalized org name => customer_organization_id
       @customer_groups = {}    # "org_id::group name" => customer_group_id
+      @seen_account_numbers = Set.new  # "client_org_id::account_number" already used
       @stats = Hash.new(0)
     end
 
@@ -145,7 +146,7 @@ module Sync
         client_organization_id: client_org_id,
         client_group_id: client_group_id,
         display_name: payload["Name"].presence || "(unnamed)",
-        account_number: payload["AccountNumber"],
+        account_number: dedupe_account_number(client_org_id, payload["AccountNumber"]),
         status: account_status(payload),
         submission_channel: 0, # unknown — derived from Ecommerce_System__c in a later pass
         portal_name: payload["Ecommerce_System__c"],
@@ -156,6 +157,24 @@ module Sync
         created_at: now,
         updated_at: now
       }
+    end
+
+    # cashline enforces account_number unique per client org, but Sailfin reuses
+    # numbers within a brand (~832 accounts / 416 pairs). Keep the first, null the
+    # rest — the account stays fully identified by display_name + sailfin_account_id.
+    # (Postgres treats NULLs as distinct, so multiple nulls are fine.)
+    def dedupe_account_number(client_org_id, raw)
+      number = raw.presence
+      return nil if number.nil?
+
+      key = "#{client_org_id}::#{number}"
+      if @seen_account_numbers.include?(key)
+        @stats[:account_number_collisions] += 1
+        nil
+      else
+        @seen_account_numbers << key
+        number
+      end
     end
 
     # customer_accounts.status enum: active(0) inactive(1) archived(2).
