@@ -38,6 +38,18 @@ This unblocks:
 | `sailfin_association_id` | If row came from `Account_Brand_Association__c` junction instead of direct lookup | unique partial when set |
 | `sailfin_owner_user_id` | `Account.OwnerId` if collections-ownership matters in cashline | — |
 
+> **Roll-up & invoice resolution.** The importer collapses every Sailfin Account
+> that lands in the same (customer org/group × client org/group) pairing into one
+> `Customer::Account` (`AccountImporter`), so `sailfin_account_id` holds only a
+> *representative* member — not every Sailfin Account that belongs to the pairing.
+> A transaction's `sfsrm__Account__c` therefore can't always resolve by a direct
+> `Customer::Account.find_by(sailfin_account_id:)`: the invoice importer must
+> first map the account id → its pairing via `CustomerGroupingMember`
+> (and the account's brand → client), then attach to that pairing's account.
+> Direct lookup remains correct for accounts that aren't rolled up.
+> Also note: only Accounts with ≥1 AR transaction are synced at all (activity
+> filter), so dormant accounts have no `Customer::Account` to resolve to.
+
 ### `Customer::Contact`
 
 | Column | Purpose | Unique? |
