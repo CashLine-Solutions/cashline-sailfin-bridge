@@ -7,7 +7,7 @@ gem "propshaft"
 # Use postgresql as the database for Active Record
 gem "pg", "~> 1.1"
 # Nearest-neighbor search over pgvector for embedding-based mapping suggestions (Unit 10)
-gem "neighbor", "~> 1.1"
+gem "neighbor", "~> 1.2"
 # Use the Puma web server [https://github.com/puma/puma]
 gem "puma", ">= 5.0"
 # Use JavaScript with ESM import maps [https://github.com/rails/importmap-rails]

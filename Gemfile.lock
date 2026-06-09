@@ -155,7 +155,7 @@ GEM
     jbuilder (2.15.1)
       actionview (>= 7.0.0)
       activesupport (>= 7.0.0)
-    json (2.19.7)
+    json (2.19.8)
     jwt (3.2.0)
       base64
     kamal (2.11.0)
@@ -198,7 +198,7 @@ GEM
       stimulus-rails
       turbo-rails
     multipart-post (2.4.1)
-    neighbor (1.1.1)
+    neighbor (1.2.0)
       activerecord (>= 7.2)
     net-http (0.9.1)
       uri (>= 0.11.1)
@@ -437,7 +437,7 @@ DEPENDENCIES
   jwt (~> 3.2)
   kamal
   mission_control-jobs
-  neighbor (~> 1.1)
+  neighbor (~> 1.2)
   pg (~> 1.1)
   propshaft
   puma (>= 5.0)
