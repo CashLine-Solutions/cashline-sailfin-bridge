@@ -33,13 +33,26 @@
   <nav class="flex gap-1 border-b border-slate-200 mb-5">
     <% tabs.each do |state, label| %>
       <% active = @state == state %>
-      <%= link_to customer_groupings_path(state: state, run: @run.id),
+      <%= link_to customer_groupings_path(state: state, run: @run.id, q: @q),
             class: "px-3 py-2 text-sm font-medium -mb-px border-b-2 #{active ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'}" do %>
         <%= label %>
         <span class="ml-1 text-xs text-slate-400"><%= @counts[state] || 0 %></span>
       <% end %>
     <% end %>
   </nav>
+
+  <%# Name search — the queue runs to thousands and only the first RENDER_LIMIT
+      render, so search is the only way to reach most groupings. %>
+  <%= form_with url: customer_groupings_path, method: :get, class: "flex items-center gap-2 mb-4" do %>
+    <%= hidden_field_tag :run, @run.id %>
+    <%= hidden_field_tag :state, @state %>
+    <input type="search" name="q" value="<%= @q %>" placeholder="Search by name… (e.g. kinder morgan)"
+           class="w-72 max-w-full text-sm rounded border-slate-300">
+    <%= submit_tag "Search", class: "rounded bg-slate-900 text-white px-3 py-1.5 text-sm font-medium cursor-pointer" %>
+    <% if @q.present? %>
+      <%= link_to "Clear", customer_groupings_path(state: @state, run: @run.id), class: "text-sm text-slate-500 hover:text-slate-800" %>
+    <% end %>
+  <% end %>
 
   <% if @total_in_state > @groupings.size %>
     <p class="text-xs text-slate-500 mb-3">
@@ -50,45 +63,87 @@
 
   <% if @groupings.empty? %>
     <div class="rounded border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
-      <% if @counts.values.sum.zero? %>
+      <% if @q.present? %>
+        No “<%= tabs[@state] %>” groupings match “<span class="font-medium"><%= @q %></span>”.
+      <% elsif @counts.values.sum.zero? %>
         No groupings yet. Click <span class="font-medium">Detect groupings</span> to scan this run's Accounts.
       <% else %>
         Nothing in “<%= tabs[@state] %>”.
       <% end %>
     </div>
   <% else %>
+    <div data-controller="rollup">
+    <%# Bulk roll-up: nest the checked groupings under one customer. The card
+        checkboxes live outside this form and bind to it via the HTML5 form=
+        attribute, so the cards' own confirm/merge forms aren't nested in it. %>
+    <%= form_with url: roll_up_customer_groupings_path, method: :post, id: "rollup-form",
+          class: "flex flex-wrap items-center gap-x-3 gap-y-2 mb-4 rounded border border-slate-200 bg-slate-50 px-3 py-2" do %>
+      <%= hidden_field_tag :run, @run.id %>
+      <%= hidden_field_tag :return_state, @state %>
+      <%= hidden_field_tag :return_q, @q %>
+      <label class="flex items-center gap-1.5 text-xs text-slate-600">
+        <input type="checkbox" data-rollup-target="all" data-action="change->rollup#toggleAll">
+        Select all shown
+      </label>
+      <span class="text-xs text-slate-500"><span data-rollup-target="count">0</span> selected</span>
+      <span class="flex-1"></span>
+      <span class="text-xs text-slate-500 shrink-0">Roll up under customer</span>
+      <input type="text" name="customer_name" list="rollup-customers" placeholder="e.g. KINDER MORGAN"
+             class="text-sm rounded border-slate-300 w-56" autocomplete="off">
+      <%= submit_tag "Roll up selected", data: { "rollup-target": "submit" },
+            class: "rounded bg-indigo-600 text-white px-3 py-1.5 text-sm font-medium disabled:opacity-40 cursor-pointer" %>
+    <% end %>
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <% @groupings.each do |g| %>
         <div class="rounded border border-slate-200 bg-white p-4">
           <div class="flex items-start justify-between gap-3 mb-2">
-            <div class="min-w-0">
-              <h2 class="font-semibold text-slate-900 truncate" title="<%= g.parent_name %>"><%= g.parent_name %></h2>
-              <div class="flex items-center gap-2 mt-1 text-xs">
-                <%= render "customer_groupings/confidence_badge", level: g.confidence %>
-                <% if g.state == "confirmed" && !g.user_modified %>
-                  <span class="inline-block rounded bg-slate-200 text-slate-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide" title="Auto-confirmed exact duplicate">auto</span>
-                <% end %>
-                <span class="text-slate-400">·</span>
-                <span class="text-slate-500"><%= g.member_count %> accounts</span>
-                <span class="text-slate-400">·</span>
-                <span class="font-mono text-slate-400"><%= g.detection_method %></span>
+            <div class="flex items-start gap-2 min-w-0">
+              <input type="checkbox" name="grouping_ids[]" value="<%= g.id %>" form="rollup-form"
+                     data-rollup-target="checkbox" data-action="change->rollup#update"
+                     class="mt-1 shrink-0" aria-label="Select <%= g.parent_name %>">
+              <div class="min-w-0">
+                <h2 class="font-semibold text-slate-900 truncate" title="<%= g.parent_name %>"><%= g.parent_name %></h2>
+                <div class="flex items-center gap-2 mt-1 text-xs">
+                  <%= render "customer_groupings/confidence_badge", level: g.confidence %>
+                  <% if g.state == "confirmed" && !g.user_modified %>
+                    <span class="inline-block rounded bg-slate-200 text-slate-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide" title="Auto-confirmed exact duplicate">auto</span>
+                  <% end %>
+                  <span class="text-slate-400">·</span>
+                  <span class="text-slate-500"><%= g.member_count %> accounts</span>
+                  <span class="text-slate-400">·</span>
+                  <span class="font-mono text-slate-400"><%= g.detection_method %></span>
+                </div>
               </div>
             </div>
             <div class="flex items-center gap-1 shrink-0">
               <% if g.state == "open" %>
-                <%= button_to "Confirm", confirm_customer_grouping_path(g, return_state: @state, run: @run.id), method: :post,
+                <%= button_to "Confirm", confirm_customer_grouping_path(g, return_state: @state, run: @run.id, return_q: @q), method: :post,
                       class: "rounded bg-emerald-600 text-white px-2.5 py-1 text-xs font-medium" %>
-                <%= button_to "Reject", reject_customer_grouping_path(g, return_state: @state, run: @run.id), method: :post,
+                <%= button_to "Reject", reject_customer_grouping_path(g, return_state: @state, run: @run.id, return_q: @q), method: :post,
                       class: "rounded bg-slate-100 text-slate-700 px-2.5 py-1 text-xs" %>
               <% elsif g.state == "confirmed" %>
-                <%= button_to "Reopen", unreject_customer_grouping_path(g, return_state: @state, run: @run.id), method: :post,
+                <%= button_to "Reopen", unreject_customer_grouping_path(g, return_state: @state, run: @run.id, return_q: @q), method: :post,
                       class: "rounded bg-slate-100 text-slate-700 px-2.5 py-1 text-xs" %>
               <% else %>
-                <%= button_to "Restore", unreject_customer_grouping_path(g, return_state: @state, run: @run.id), method: :post,
+                <%= button_to "Restore", unreject_customer_grouping_path(g, return_state: @state, run: @run.id, return_q: @q), method: :post,
                       class: "rounded bg-slate-100 text-slate-700 px-2.5 py-1 text-xs" %>
               <% end %>
             </div>
           </div>
+          <% if g.rolled_up? %>
+            <div class="flex flex-wrap items-center gap-1.5 mb-2 text-xs border-t border-slate-100 pt-2">
+              <span class="inline-flex items-center gap-1 rounded bg-indigo-100 text-indigo-800 px-1.5 py-0.5 font-medium" title="Customer">↳ <%= g.customer_name %></span>
+              <%= form_with url: group_label_customer_grouping_path(g, return_state: @state, run: @run.id, return_q: @q), method: :patch, class: "inline-flex items-center gap-1" do %>
+                <span class="text-slate-400">group</span>
+                <input type="text" name="group_label" value="<%= g.group_label %>" placeholder="Main"
+                       class="w-36 text-xs rounded border-slate-300 py-0.5" autocomplete="off">
+                <%= submit_tag "Save", class: "rounded bg-slate-100 text-slate-700 px-1.5 py-0.5 text-xs cursor-pointer" %>
+              <% end %>
+              <%= button_to "remove", unroll_customer_grouping_path(g, return_state: @state, run: @run.id, return_q: @q),
+                    method: :post, form_class: "inline", class: "text-indigo-500 hover:text-indigo-900 underline" %>
+            </div>
+          <% end %>
           <% merged = g.merged_aliases.to_a %>
           <% if merged.any? %>
             <div class="flex flex-wrap items-center gap-1.5 mb-2 text-xs">
@@ -96,7 +151,7 @@
               <% merged.each do |a| %>
                 <span class="inline-flex items-center gap-1 rounded bg-indigo-50 text-indigo-700 px-1.5 py-0.5">
                   <%= a.absorbed_display_name %>
-                  <%= button_to "×", unmerge_customer_grouping_path(g, alias_id: a.id, return_state: @state, run: @run.id),
+                  <%= button_to "×", unmerge_customer_grouping_path(g, alias_id: a.id, return_state: @state, run: @run.id, return_q: @q),
                         method: :post, form_class: "inline", data: { turbo_confirm: "Unmerge “#{a.absorbed_display_name}”?" },
                         class: "leading-none text-indigo-500 hover:text-indigo-900", title: "Unmerge" %>
                 </span>
@@ -115,7 +170,7 @@
 
           <%# Merge this grouping into another (same customer under a different
               label). Typeahead backed by the shared datalist below. %>
-          <%= form_with url: merge_customer_grouping_path(g, return_state: @state, run: @run.id), method: :post,
+          <%= form_with url: merge_customer_grouping_path(g, return_state: @state, run: @run.id, return_q: @q), method: :post,
                 class: "mt-3 flex items-center gap-1.5 border-t border-slate-100 pt-2" do %>
             <span class="text-xs text-slate-400 shrink-0">Merge into</span>
             <input type="text" name="target_name" list="grouping-names" placeholder="type a grouping name…"
@@ -125,10 +180,15 @@
         </div>
       <% end %>
     </div>
+    </div>
   <% end %>
 
   <%# Shared options for every card's "merge into" typeahead — rendered once. %>
   <datalist id="grouping-names">
     <% @merge_targets.each do |name| %><option value="<%= name %>"></option><% end %>
+  </datalist>
+  <%# Existing customers for the "roll up under…" typeahead. %>
+  <datalist id="rollup-customers">
+    <% @rollup_customers.each do |name| %><option value="<%= name %>"></option><% end %>
   </datalist>
 <% end %>

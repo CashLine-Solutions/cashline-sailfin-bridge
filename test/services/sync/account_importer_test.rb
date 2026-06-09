@@ -119,6 +119,40 @@ class Sync::AccountImporterTest < ActiveSupport::TestCase
       "the lexically-lowest sailfin id is the stable representative"
   end
 
+  test "do-not-use customers are imported but soft-archived" do
+    skip "cashline_sailfin_sync_test not provisioned" unless @sync_available
+
+    sf_account("DNU1", "(DO NOT USE) Dead Payer LLC")
+    sf_account("DNU2", "ACME CORP - DO NOT USE")
+    sf_account("DNU3", "DNU FLUOR FEDERAL")
+    sf_account("LIVE", "REAL CUSTOMER INC")
+
+    import!
+
+    %w[DNU1 DNU2 DNU3].each do |id|
+      org = org_for_account(id)
+      assert org, "#{id} is still imported (archived, not dropped)"
+      assert_not_nil org.archived_at, "#{id}'s customer org is soft-archived"
+    end
+    assert_nil org_for_account("LIVE").archived_at, "a normal customer is not archived"
+  end
+
+  test "emits an account crosswalk that points collapsed members at one customer_account" do
+    skip "cashline_sailfin_sync_test not provisioned" unless @sync_available
+
+    sf_account("CW1", "VIKING SANITATION") # CW1 + CW2 collapse into one pairing
+    sf_account("CW2", "VIKING SANITATION")
+    sf_account("CW3", "LONE CO")
+    import!
+
+    xw = SyncAccountCrosswalk.where(extraction_run_id: @run.id).pluck(:sailfin_account_id, :customer_account_id).to_h
+    assert_equal %w[CW1 CW2 CW3].to_set, xw.keys.to_set, "every active account is crosswalked"
+    assert_equal xw["CW1"], xw["CW2"], "collapsed members resolve to the same customer_account"
+    assert_includes %w[CW1 CW2], CashlineSync::CustomerAccount.find(xw["CW1"]).sailfin_account_id,
+      "the shared id is the pairing's representative"
+    assert_not_equal xw["CW1"], xw["CW3"], "a different customer is a different account"
+  end
+
   test "a failure during rebuild rolls back the purge so the prior import survives" do
     skip "cashline_sailfin_sync_test not provisioned" unless @sync_available
 
@@ -139,6 +173,11 @@ class Sync::AccountImporterTest < ActiveSupport::TestCase
 
   def import!
     Sync::AccountImporter.new(extraction_run_id: @run.id, scaffolding: @scaffolding).call
+  end
+
+  def org_for_account(sf_id)
+    acct = CashlineSync::CustomerAccount.find_by(sailfin_account_id: sf_id)
+    acct && CashlineSync::CustomerOrganization.find(acct.customer_organization_id)
   end
 
   # By default the account also gets one AR transaction so it survives the

@@ -41,13 +41,18 @@ Rails.application.routes.draw do
   # Customer grouping review queue — confirm/reject parent roll-ups detected from
   # Sailfin Account names/structure before the importer applies them.
   resources :customer_groupings, only: [ :index ], path: "grouping" do
-    collection { post :detect }
+    collection do
+      post :detect
+      post :roll_up   # nest many groupings under one customer (bulk)
+    end
     member do
       post :confirm
       post :reject
       post :unreject
       post :merge
       post :unmerge
+      post :unroll          # remove this grouping from its customer
+      patch :group_label    # edit a rolled-up grouping's group label
     end
   end
 

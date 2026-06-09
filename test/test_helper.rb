@@ -11,6 +11,14 @@ module ActiveSupport
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     fixtures :all
 
+    # cashline_sync is an external (cashline-platform) database with
+    # database_tasks:false — Rails neither migrates it nor creates per-worker
+    # parallel copies. Keep it out of the transactional-fixtures machinery so any
+    # test that loads a CashlineSync model doesn't make every other test in the
+    # worker try (and fail) to pin a connection to it. Sync-DB tests manage their
+    # own isolation. See Sync::AccountImporterTest.
+    skip_transactional_tests_for_database(:cashline_sync)
+
     # SessionsController#create rate-limit counters live in Rails.cache, which
     # is a process-wide memory_store in test. Without this, throttling state
     # accumulates across tests in a worker and a later test's login silently

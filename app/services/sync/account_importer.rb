@@ -52,6 +52,11 @@ module Sync
     ACTIVITY_ACCOUNT_FIELD = "sfsrm__Account__c".freeze
     DELIMITER = " - ".freeze
     DEFAULT_GROUP = "Main".freeze
+    # Catalog junk: "(DO NOT USE) X", "X - DO NOT USE", "DNU FOO". Soft-archived
+    # on import (archived_at) so they drop out of the catalog by default but keep
+    # their accounts / AR linkage. A manual archive wouldn't survive the full
+    # refresh, so the rule lives here and re-applies every sync.
+    DO_NOT_USE = /\bdo\W*not\W*use\b|\bdnu\b/i
 
     def initialize(extraction_run_id:, limit: nil, sf_ids: nil, require_activity: true, scaffolding: ScaffoldingBuilder.new)
       @run_id = extraction_run_id
@@ -66,6 +71,7 @@ module Sync
     end
 
     def call
+      crosswalk = []
       # One sync-DB transaction wraps purge + rebuild: a mid-run failure rolls
       # back to the prior state, never a half-populated DB. (Reads of SfRecord /
       # CustomerGrouping below hit the primary DB on a separate connection.)
@@ -73,8 +79,11 @@ module Sync
         operator_id = @scaffolding.operator_id
         purge_customer_data(operator_id)
 
-        # Collapse to one row per (customer org/group x client org/group) pairing.
+        # Collapse to one row per (customer org/group x client org/group) pairing,
+        # tracking every member account so the crosswalk can point them all at the
+        # representative's customer_account.
         pairings = {}
+        members_by_pairing = Hash.new { |h, k| h[k] = [] }
         scope.find_each do |rec|
           p = rec.payload
           if @require_activity && !active_account_ids.include?(p["Id"])
@@ -92,13 +101,16 @@ module Sync
           row = customer_account_row(p, customer_org_id, client_org_id, client_group_id, customer_group_id)
           key = [ customer_org_id, customer_group_id, client_org_id, client_group_id ]
           pairings[key] = merge_pairing(pairings[key], row)
+          members_by_pairing[key] << p["Id"]
           @stats[:accounts_seen] += 1
         end
 
         rows = apply_account_number_dedup(pairings.values)
         @stats[:accounts_rolled_up] = @stats[:accounts_seen] - rows.size
-        upsert_customer_accounts(rows)
+        id_map = upsert_customer_accounts(rows)
+        crosswalk = build_crosswalk(pairings, members_by_pairing, id_map)
       end
+      persist_crosswalk(crosswalk)
       @stats[:client_orgs] = @client_orgs.size
       @stats[:customer_orgs] = @customer_orgs.size
       @stats[:customer_groups] = @customer_groups.size
@@ -113,8 +125,13 @@ module Sync
     # where every customer_account and customer_group ultimately hangs.
     def purge_customer_data(operator_id)
       org_scope = CashlineSync::CustomerOrganization.where(operator_id: operator_id)
-      # `where(... : org_scope)` compiles to IN (subquery) — no ids pulled into Ruby.
-      @stats[:purged_accounts] = CashlineSync::CustomerAccount.where(customer_organization_id: org_scope).delete_all
+      acct_scope = CashlineSync::CustomerAccount.where(customer_organization_id: org_scope)
+      # `where(... : scope)` compiles to IN (subquery) — no ids pulled into Ruby.
+      # customer_contacts FK to customer_accounts, so clear them first. A full
+      # account refresh re-keys accounts anyway (new ids), so contacts must be
+      # re-imported after — import_all runs accounts then contacts in that order.
+      @stats[:purged_contacts] = CashlineSync::CustomerContact.where(customer_account_id: acct_scope).delete_all
+      @stats[:purged_accounts] = acct_scope.delete_all
       @stats[:purged_groups]   = CashlineSync::CustomerGroup.where(customer_organization_id: org_scope).delete_all
       @stats[:purged_orgs]     = org_scope.delete_all
     end
@@ -195,12 +212,17 @@ module Sync
       normalized = normalize(org_name)
       @customer_orgs[normalized] ||= begin
         existing = CashlineSync::CustomerOrganization.find_by(operator_id: operator_id, normalized_name: normalized)
-        (existing || CashlineSync::CustomerOrganization.create!(
-          canonical_name: org_name,
-          normalized_name: normalized,
-          operator_id: operator_id,
-          sailfin_account_id: representative_sf_id
-        )).id
+        existing&.id || begin
+          archived_at = (Time.current if DO_NOT_USE.match?(org_name.to_s))
+          @stats[:archived_orgs] += 1 if archived_at
+          CashlineSync::CustomerOrganization.create!(
+            canonical_name: org_name,
+            normalized_name: normalized,
+            operator_id: operator_id,
+            sailfin_account_id: representative_sf_id,
+            archived_at: archived_at
+          ).id
+        end
       end
     end
 
@@ -289,15 +311,55 @@ module Sync
 
     UPSERT_BATCH = 2_000
 
+    # Upserts the representative rows and returns { [sailfin_account_id,
+    # client_organization_id] => customer_account_id } so the crosswalk can map
+    # each pairing back to its persisted id.
     def upsert_customer_accounts(rows)
-      return if rows.empty?
+      id_map = {}
+      return id_map if rows.empty?
       # Batch — a single upsert_all of 100k+ rows is one enormous statement.
       rows.each_slice(UPSERT_BATCH) do |slice|
-        CashlineSync::CustomerAccount.upsert_all(
-          slice, unique_by: %i[sailfin_account_id client_organization_id]
+        result = CashlineSync::CustomerAccount.upsert_all(
+          slice, unique_by: %i[sailfin_account_id client_organization_id],
+          returning: %i[id sailfin_account_id client_organization_id]
         )
+        result.each { |r| id_map[[ r["sailfin_account_id"], r["client_organization_id"] ]] = r["id"] }
       end
       @stats[:customer_accounts] = rows.size
+      id_map
+    end
+
+    # sailfin_account_id => sync customer_account, for EVERY member of a pairing
+    # (not just the kept representative). Persisted to the bridge primary DB for
+    # downstream importers; cross-DB so customer_account_id is a bare id.
+    def build_crosswalk(pairings, members_by_pairing, id_map)
+      now = Time.current
+      rows = []
+      pairings.each do |key, rep|
+        customer_account_id = id_map[[ rep[:sailfin_account_id], rep[:client_organization_id] ]]
+        next unless customer_account_id
+        customer_org_id, customer_group_id, _client_org_id, client_group_id = key
+        members_by_pairing[key].each do |sailfin_account_id|
+          rows << {
+            extraction_run_id: @run_id,
+            sailfin_account_id: sailfin_account_id,
+            customer_account_id: customer_account_id,
+            customer_organization_id: customer_org_id,
+            customer_group_id: customer_group_id,
+            client_group_id: client_group_id,
+            created_at: now, updated_at: now
+          }
+        end
+      end
+      rows
+    end
+
+    # Full refresh of this run's crosswalk on the primary DB (separate connection,
+    # so it commits after the sync transaction; a re-run rebuilds both in lockstep).
+    def persist_crosswalk(rows)
+      SyncAccountCrosswalk.where(extraction_run_id: @run_id).delete_all
+      rows.each_slice(UPSERT_BATCH) { |slice| SyncAccountCrosswalk.insert_all(slice) } if rows.present?
+      @stats[:crosswalk_rows] = rows.size
     end
 
     def unique_client_slug(operator_id, base)

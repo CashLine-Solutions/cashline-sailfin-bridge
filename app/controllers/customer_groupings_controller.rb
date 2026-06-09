@@ -5,7 +5,7 @@ class CustomerGroupingsController < ApplicationController
   RENDER_LIMIT = 300
 
   before_action :load_run
-  before_action :load_grouping, only: [ :confirm, :reject, :unreject, :merge, :unmerge ]
+  before_action :load_grouping, only: [ :confirm, :reject, :unreject, :merge, :unmerge, :unroll, :group_label ]
   after_action :verify_authorized
 
   def index
@@ -18,6 +18,12 @@ class CustomerGroupingsController < ApplicationController
 
     @state = CustomerGrouping::STATES.include?(params[:state]) ? params[:state] : "open"
     scoped = policy_scope(CustomerGrouping).for_run(@run.id).where(state: @state)
+    # Name search — the queue runs to thousands and RENDER_LIMIT only shows the
+    # first slice, so without this most groupings are unreachable in the UI.
+    @q = params[:q].to_s.strip
+    if @q.present?
+      scoped = scoped.where("parent_name ILIKE ?", "%#{CustomerGrouping.sanitize_sql_like(@q)}%")
+    end
     @total_in_state = scoped.count
     # Auto-confirmed exact dups can number in the thousands; cap what we render.
     @groupings = scoped.includes(:members)
@@ -33,6 +39,10 @@ class CustomerGroupingsController < ApplicationController
     @merge_targets = policy_scope(CustomerGrouping).for_run(@run.id)
                      .where("state = 'open' OR user_modified = ?", true)
                      .order(:parent_name).pluck(:parent_name)
+    # Existing customers already used as roll-up targets, for the "roll up
+    # under…" typeahead (so you reuse "KINDER MORGAN" rather than retype it).
+    @rollup_customers = policy_scope(CustomerGrouping).for_run(@run.id)
+                        .rolled_up.distinct.order(:customer_name).pluck(:customer_name)
   end
 
   def detect
@@ -48,21 +58,21 @@ class CustomerGroupingsController < ApplicationController
   def confirm
     authorize @grouping, :confirm?
     @grouping.update!(state: "confirmed", user_modified: true)
-    redirect_to customer_groupings_path(state: params[:return_state], run: @run.id),
+    redirect_to customer_groupings_path(state: params[:return_state], run: @run.id, q: params[:return_q]),
                 notice: "Confirmed grouping “#{@grouping.parent_name}”."
   end
 
   def reject
     authorize @grouping, :reject?
     @grouping.update!(state: "rejected", user_modified: true)
-    redirect_to customer_groupings_path(state: params[:return_state], run: @run.id),
+    redirect_to customer_groupings_path(state: params[:return_state], run: @run.id, q: params[:return_q]),
                 notice: "Rejected grouping “#{@grouping.parent_name}”."
   end
 
   def unreject
     authorize @grouping, :unreject?
     @grouping.update!(state: "open", user_modified: true)
-    redirect_to customer_groupings_path(state: params[:return_state], run: @run.id),
+    redirect_to customer_groupings_path(state: params[:return_state], run: @run.id, q: params[:return_q]),
                 notice: "Reopened grouping “#{@grouping.parent_name}”."
   end
 
@@ -78,7 +88,7 @@ class CustomerGroupingsController < ApplicationController
                CustomerGrouping.find_by(id: params[:target_id])
              end
     if target.nil? || target.extraction_run_id != @run.id || target.id == @grouping.id
-      return redirect_to customer_groupings_path(state: params[:return_state], run: @run.id),
+      return redirect_to customer_groupings_path(state: params[:return_state], run: @run.id, q: params[:return_q]),
                          alert: "Pick a different existing grouping to merge into."
     end
 
@@ -100,7 +110,7 @@ class CustomerGroupingsController < ApplicationController
       @grouping.destroy
     end
 
-    redirect_to customer_groupings_path(state: params[:return_state], run: @run.id),
+    redirect_to customer_groupings_path(state: params[:return_state], run: @run.id, q: params[:return_q]),
                 notice: "Merged “#{absorbed_name}” into “#{target.parent_name}”."
   end
 
@@ -123,8 +133,46 @@ class CustomerGroupingsController < ApplicationController
       alias_row.destroy
     end
 
-    redirect_to customer_groupings_path(state: params[:return_state], run: @run.id),
+    redirect_to customer_groupings_path(state: params[:return_state], run: @run.id, q: params[:return_q]),
                 notice: "Unmerged “#{alias_row.absorbed_display_name}” from “#{@grouping.parent_name}”."
+  end
+
+  # Nest many groupings under one customer in a single click. Each selected
+  # grouping becomes a GROUP (auto-labeled by stripping the customer prefix)
+  # under the customer ORG, and is confirmed so the importer applies it.
+  def roll_up
+    authorize CustomerGrouping, :roll_up?
+    customer = params[:customer_name].to_s.strip
+    ids = Array(params[:grouping_ids]).map(&:to_i)
+    if customer.blank? || ids.empty?
+      return redirect_to customer_groupings_path(state: params[:return_state], run: @run.id, q: params[:return_q]),
+                         alert: "Pick a customer name and at least one grouping to roll up."
+    end
+
+    groupings = policy_scope(CustomerGrouping).for_run(@run.id).where(id: ids)
+    groupings.find_each do |g|
+      g.update!(customer_name: customer,
+                group_label: CustomerGrouping.derive_group_label(g.parent_name, customer),
+                state: "confirmed", user_modified: true)
+    end
+    redirect_to customer_groupings_path(state: params[:return_state], run: @run.id, q: params[:return_q]),
+                notice: "Rolled #{groupings.size} grouping#{'s' unless groupings.size == 1} up under “#{customer}”."
+  end
+
+  # Pull a grouping back out of its customer (it becomes its own org again).
+  def unroll
+    authorize @grouping, :unroll?
+    @grouping.update!(customer_name: nil, group_label: nil, user_modified: true)
+    redirect_to customer_groupings_path(state: params[:return_state], run: @run.id, q: params[:return_q]),
+                notice: "Removed “#{@grouping.parent_name}” from its customer."
+  end
+
+  # Edit a rolled-up grouping's group label (the auto-derived default is a guess).
+  def group_label
+    authorize @grouping, :group_label?
+    @grouping.update!(group_label: params[:group_label].to_s.strip.presence)
+    redirect_to customer_groupings_path(state: params[:return_state], run: @run.id, q: params[:return_q]),
+                notice: "Updated group label for “#{@grouping.parent_name}”."
   end
 
   private

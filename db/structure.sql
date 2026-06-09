@@ -219,7 +219,9 @@ CREATE TABLE public.customer_groupings (
     state character varying DEFAULT 'open'::character varying NOT NULL,
     user_modified boolean DEFAULT false NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    customer_name character varying,
+    group_label character varying
 );
 
 
@@ -1043,6 +1045,42 @@ ALTER SEQUENCE public.srelationships_id_seq OWNED BY public.srelationships.id;
 
 
 --
+-- Name: sync_account_crosswalks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sync_account_crosswalks (
+    id bigint NOT NULL,
+    extraction_run_id bigint NOT NULL,
+    sailfin_account_id character varying NOT NULL,
+    customer_account_id bigint NOT NULL,
+    customer_organization_id bigint NOT NULL,
+    customer_group_id bigint NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    client_group_id bigint
+);
+
+
+--
+-- Name: sync_account_crosswalks_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.sync_account_crosswalks_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: sync_account_crosswalks_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.sync_account_crosswalks_id_seq OWNED BY public.sync_account_crosswalks.id;
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1242,6 +1280,13 @@ ALTER TABLE ONLY public.srecord_types ALTER COLUMN id SET DEFAULT nextval('publi
 --
 
 ALTER TABLE ONLY public.srelationships ALTER COLUMN id SET DEFAULT nextval('public.srelationships_id_seq'::regclass);
+
+
+--
+-- Name: sync_account_crosswalks id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sync_account_crosswalks ALTER COLUMN id SET DEFAULT nextval('public.sync_account_crosswalks_id_seq'::regclass);
 
 
 --
@@ -1500,6 +1545,14 @@ ALTER TABLE ONLY public.srelationships
 
 
 --
+-- Name: sync_account_crosswalks sync_account_crosswalks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sync_account_crosswalks
+    ADD CONSTRAINT sync_account_crosswalks_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1603,6 +1656,13 @@ CREATE INDEX index_customer_grouping_members_on_customer_grouping_id ON public.c
 --
 
 CREATE INDEX index_customer_groupings_on_extraction_run_id ON public.customer_groupings USING btree (extraction_run_id);
+
+
+--
+-- Name: index_customer_groupings_on_run_and_customer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_customer_groupings_on_run_and_customer ON public.customer_groupings USING btree (extraction_run_id, customer_name);
 
 
 --
@@ -2215,6 +2275,20 @@ CREATE INDEX index_srelationships_on_target_sobject_id ON public.srelationships 
 
 
 --
+-- Name: index_sync_account_crosswalks_on_extraction_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_sync_account_crosswalks_on_extraction_run_id ON public.sync_account_crosswalks USING btree (extraction_run_id);
+
+
+--
+-- Name: index_sync_account_crosswalks_on_run_and_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_sync_account_crosswalks_on_run_and_account ON public.sync_account_crosswalks USING btree (extraction_run_id, sailfin_account_id);
+
+
+--
 -- Name: index_users_on_email_address; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2469,6 +2543,14 @@ ALTER TABLE ONLY public.customer_grouping_members
 
 
 --
+-- Name: sync_account_crosswalks fk_rails_e51e559767; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sync_account_crosswalks
+    ADD CONSTRAINT fk_rails_e51e559767 FOREIGN KEY (extraction_run_id) REFERENCES public.extraction_runs(id);
+
+
+--
 -- Name: field_assessments fk_rails_e530fb2e9b; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2499,6 +2581,9 @@ ALTER TABLE ONLY public.clusters
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260609000001'),
+('20260608000002'),
+('20260608000001'),
 ('20260605000002'),
 ('20260605000001'),
 ('20260602000001'),

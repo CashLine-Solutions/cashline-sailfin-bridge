@@ -27,6 +27,9 @@ class CustomerGroupingPolicy < ApplicationPolicy
   alias_method :detect?, :edit?
   alias_method :merge?, :edit?
   alias_method :unmerge?, :edit?
+  alias_method :roll_up?, :edit?
+  alias_method :unroll?, :edit?
+  alias_method :group_label?, :edit?
 
   class Scope < ApplicationPolicy::Scope
     def resolve

@@ -141,17 +141,23 @@ module Sync
       new_record = grouping.new_record?
       grouping.detection_method = method
       grouping.confidence = confidence_for(parent_name, method, members)
-      # Auto-confirm true duplicates on first sight; everything else waits for an
-      # operator. Never touch the state of an existing grouping (an operator may
-      # have already confirmed/rejected/merged it).
+      confirm = auto_confirm?(method, parent_name)
+      upgraded = false
+      # Auto-confirm confident clean matches on first sight. On re-detect, also
+      # UPGRADE a still-pending machine candidate (open + never operator-touched)
+      # to confirmed under the current policy — but never override an operator's
+      # own confirm/reject/reopen/roll-up (those set user_modified).
       if new_record
-        grouping.state = AUTO_CONFIRM_METHODS.include?(method) ? "confirmed" : "open"
+        grouping.state = confirm ? "confirmed" : "open"
         grouping.user_modified = false   # distinguishes auto-confirmed from operator-confirmed
+      elsif confirm && grouping.state == "open" && !grouping.user_modified
+        grouping.state = "confirmed"
+        upgraded = true
       end
       grouping.state ||= "open"
       grouping.save!
       @persisted_ids << grouping.id
-      @stats[:auto_confirmed] += 1 if new_record && grouping.state == "confirmed"
+      @stats[:auto_confirmed] += 1 if upgraded || (new_record && grouping.state == "confirmed")
 
       sync_members(grouping, members)
 
@@ -225,7 +231,20 @@ module Sync
       "normalized_name"
     end
 
-    AUTO_CONFIRM_METHODS = %w[exact_duplicate].freeze
+    # Auto-confirm (skip the review queue) when the match is confident and clean:
+    #   - exact_duplicate — identical names modulo punctuation/case.
+    #   - normalized_name — same base name, differs only by a legal suffix
+    #                       ("AIR PRODUCTS & CHEMICALS" / "… INC" / "…, INC.").
+    #   - name_prefix     — a location/project roll-up ("ALCOA - POINT COMFORT");
+    #                       the " - " suffix becomes its own customer group at import.
+    # Internal-code-looking parent labels (e.g. "RAL25008-130") still want a human
+    # glance, so they stay open even with these methods.
+    def auto_confirm?(method, parent_name)
+      return true if method == "exact_duplicate"
+      return false unless %w[normalized_name name_prefix].include?(method)
+
+      !code_like?(parent_name)
+    end
 
     # Pick the cleanest representative label: most frequent, tie-broken by the one
     # closest to its own entity key (i.e. least decoration), then shortest.
