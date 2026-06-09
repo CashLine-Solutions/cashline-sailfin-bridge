@@ -139,6 +139,112 @@ ALTER SEQUENCE public.clusters_id_seq OWNED BY public.clusters.id;
 
 
 --
+-- Name: customer_grouping_aliases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.customer_grouping_aliases (
+    id bigint NOT NULL,
+    extraction_run_id bigint NOT NULL,
+    alias_normalized character varying NOT NULL,
+    absorbed_display_name character varying NOT NULL,
+    canonical_parent_name character varying NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: customer_grouping_aliases_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.customer_grouping_aliases_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: customer_grouping_aliases_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.customer_grouping_aliases_id_seq OWNED BY public.customer_grouping_aliases.id;
+
+
+--
+-- Name: customer_grouping_members; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.customer_grouping_members (
+    id bigint NOT NULL,
+    customer_grouping_id bigint NOT NULL,
+    sailfin_account_id character varying NOT NULL,
+    account_name character varying NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    source_parent_name character varying NOT NULL
+);
+
+
+--
+-- Name: customer_grouping_members_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.customer_grouping_members_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: customer_grouping_members_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.customer_grouping_members_id_seq OWNED BY public.customer_grouping_members.id;
+
+
+--
+-- Name: customer_groupings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.customer_groupings (
+    id bigint NOT NULL,
+    extraction_run_id bigint NOT NULL,
+    parent_name character varying NOT NULL,
+    detection_method character varying NOT NULL,
+    confidence character varying DEFAULT 'medium'::character varying NOT NULL,
+    state character varying DEFAULT 'open'::character varying NOT NULL,
+    user_modified boolean DEFAULT false NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    customer_name character varying,
+    group_label character varying
+);
+
+
+--
+-- Name: customer_groupings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.customer_groupings_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: customer_groupings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.customer_groupings_id_seq OWNED BY public.customer_groupings.id;
+
+
+--
 -- Name: data_exports; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -939,6 +1045,42 @@ ALTER SEQUENCE public.srelationships_id_seq OWNED BY public.srelationships.id;
 
 
 --
+-- Name: sync_account_crosswalks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sync_account_crosswalks (
+    id bigint NOT NULL,
+    extraction_run_id bigint NOT NULL,
+    sailfin_account_id character varying NOT NULL,
+    customer_account_id bigint NOT NULL,
+    customer_organization_id bigint NOT NULL,
+    customer_group_id bigint NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    client_group_id bigint
+);
+
+
+--
+-- Name: sync_account_crosswalks_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.sync_account_crosswalks_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: sync_account_crosswalks_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.sync_account_crosswalks_id_seq OWNED BY public.sync_account_crosswalks.id;
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -991,6 +1133,27 @@ ALTER TABLE ONLY public.cluster_assignments ALTER COLUMN id SET DEFAULT nextval(
 --
 
 ALTER TABLE ONLY public.clusters ALTER COLUMN id SET DEFAULT nextval('public.clusters_id_seq'::regclass);
+
+
+--
+-- Name: customer_grouping_aliases id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_grouping_aliases ALTER COLUMN id SET DEFAULT nextval('public.customer_grouping_aliases_id_seq'::regclass);
+
+
+--
+-- Name: customer_grouping_members id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_grouping_members ALTER COLUMN id SET DEFAULT nextval('public.customer_grouping_members_id_seq'::regclass);
+
+
+--
+-- Name: customer_groupings id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_groupings ALTER COLUMN id SET DEFAULT nextval('public.customer_groupings_id_seq'::regclass);
 
 
 --
@@ -1120,6 +1283,13 @@ ALTER TABLE ONLY public.srelationships ALTER COLUMN id SET DEFAULT nextval('publ
 
 
 --
+-- Name: sync_account_crosswalks id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sync_account_crosswalks ALTER COLUMN id SET DEFAULT nextval('public.sync_account_crosswalks_id_seq'::regclass);
+
+
+--
 -- Name: users id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1156,6 +1326,30 @@ ALTER TABLE ONLY public.cluster_assignments
 
 ALTER TABLE ONLY public.clusters
     ADD CONSTRAINT clusters_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: customer_grouping_aliases customer_grouping_aliases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_grouping_aliases
+    ADD CONSTRAINT customer_grouping_aliases_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: customer_grouping_members customer_grouping_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_grouping_members
+    ADD CONSTRAINT customer_grouping_members_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: customer_groupings customer_groupings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_groupings
+    ADD CONSTRAINT customer_groupings_pkey PRIMARY KEY (id);
 
 
 --
@@ -1351,6 +1545,14 @@ ALTER TABLE ONLY public.srelationships
 
 
 --
+-- Name: sync_account_crosswalks sync_account_crosswalks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sync_account_crosswalks
+    ADD CONSTRAINT sync_account_crosswalks_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1433,6 +1635,48 @@ CREATE INDEX index_clusters_on_extraction_run_id ON public.clusters USING btree 
 --
 
 CREATE UNIQUE INDEX index_clusters_on_extraction_run_id_and_name ON public.clusters USING btree (extraction_run_id, name);
+
+
+--
+-- Name: index_customer_grouping_aliases_on_extraction_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_customer_grouping_aliases_on_extraction_run_id ON public.customer_grouping_aliases USING btree (extraction_run_id);
+
+
+--
+-- Name: index_customer_grouping_members_on_customer_grouping_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_customer_grouping_members_on_customer_grouping_id ON public.customer_grouping_members USING btree (customer_grouping_id);
+
+
+--
+-- Name: index_customer_groupings_on_extraction_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_customer_groupings_on_extraction_run_id ON public.customer_groupings USING btree (extraction_run_id);
+
+
+--
+-- Name: index_customer_groupings_on_run_and_customer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_customer_groupings_on_run_and_customer ON public.customer_groupings USING btree (extraction_run_id, customer_name);
+
+
+--
+-- Name: index_customer_groupings_on_run_and_parent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_customer_groupings_on_run_and_parent ON public.customer_groupings USING btree (extraction_run_id, parent_name);
+
+
+--
+-- Name: index_customer_groupings_on_run_and_state; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_customer_groupings_on_run_and_state ON public.customer_groupings USING btree (extraction_run_id, state);
 
 
 --
@@ -1744,6 +1988,34 @@ CREATE INDEX index_good_jobs_on_unfinished_or_errored ON public.good_jobs USING 
 
 
 --
+-- Name: index_grouping_aliases_on_run_and_alias; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_grouping_aliases_on_run_and_alias ON public.customer_grouping_aliases USING btree (extraction_run_id, alias_normalized);
+
+
+--
+-- Name: index_grouping_aliases_on_run_and_canonical; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_grouping_aliases_on_run_and_canonical ON public.customer_grouping_aliases USING btree (extraction_run_id, canonical_parent_name);
+
+
+--
+-- Name: index_grouping_members_on_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_grouping_members_on_account ON public.customer_grouping_members USING btree (sailfin_account_id);
+
+
+--
+-- Name: index_grouping_members_on_grouping_and_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_grouping_members_on_grouping_and_account ON public.customer_grouping_members USING btree (customer_grouping_id, sailfin_account_id);
+
+
+--
 -- Name: index_mapping_entries_on_cashline_snapshot_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2003,6 +2275,20 @@ CREATE INDEX index_srelationships_on_target_sobject_id ON public.srelationships 
 
 
 --
+-- Name: index_sync_account_crosswalks_on_extraction_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_sync_account_crosswalks_on_extraction_run_id ON public.sync_account_crosswalks USING btree (extraction_run_id);
+
+
+--
+-- Name: index_sync_account_crosswalks_on_run_and_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_sync_account_crosswalks_on_run_and_account ON public.sync_account_crosswalks USING btree (extraction_run_id, sailfin_account_id);
+
+
+--
 -- Name: index_users_on_email_address; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2113,6 +2399,14 @@ ALTER TABLE ONLY public.srelationships
 
 
 --
+-- Name: customer_groupings fk_rails_6376265b4d; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_groupings
+    ADD CONSTRAINT fk_rails_6376265b4d FOREIGN KEY (extraction_run_id) REFERENCES public.extraction_runs(id);
+
+
+--
 -- Name: embedding_sources fk_rails_640539ee07; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2185,6 +2479,14 @@ ALTER TABLE ONLY public.mapping_proposals
 
 
 --
+-- Name: customer_grouping_aliases fk_rails_942a06ab04; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_grouping_aliases
+    ADD CONSTRAINT fk_rails_942a06ab04 FOREIGN KEY (extraction_run_id) REFERENCES public.extraction_runs(id);
+
+
+--
 -- Name: extraction_runs fk_rails_a0981ca581; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2233,6 +2535,22 @@ ALTER TABLE ONLY public.cluster_assignments
 
 
 --
+-- Name: customer_grouping_members fk_rails_d8fea01c7c; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_grouping_members
+    ADD CONSTRAINT fk_rails_d8fea01c7c FOREIGN KEY (customer_grouping_id) REFERENCES public.customer_groupings(id);
+
+
+--
+-- Name: sync_account_crosswalks fk_rails_e51e559767; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sync_account_crosswalks
+    ADD CONSTRAINT fk_rails_e51e559767 FOREIGN KEY (extraction_run_id) REFERENCES public.extraction_runs(id);
+
+
+--
 -- Name: field_assessments fk_rails_e530fb2e9b; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2263,6 +2581,11 @@ ALTER TABLE ONLY public.clusters
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260609000001'),
+('20260608000002'),
+('20260608000001'),
+('20260605000002'),
+('20260605000001'),
 ('20260602000001'),
 ('20260529130000'),
 ('20260529120000'),

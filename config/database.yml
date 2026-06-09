@@ -30,6 +30,13 @@ development:
     migrations_paths: db/audit_migrate
     # In development we use the same Postgres role as primary for convenience.
     # The audit role separation is enforced in production (and in CI smoke tests).
+  cashline_sync:
+    # External cashline-platform sync DB the importer writes into. Owned by
+    # cashline-platform (it loads the schema there); database_tasks:false keeps
+    # Rails from trying to migrate or schema-dump it as if it were ours.
+    <<: *default
+    database: cashline_sailfin_sync
+    database_tasks: false
 
 test:
   primary:
@@ -50,6 +57,11 @@ test:
     database: cashline_ontology_test_audit
     url: <%= ENV["DATABASE_URL"] %>
     migrations_paths: db/audit_migrate
+  cashline_sync:
+    <<: *default
+    database: cashline_sailfin_sync_test
+    url: <%= ENV["CASHLINE_SYNC_DATABASE_URL"] %>
+    database_tasks: false
 
 production:
   # Render (and any managed Postgres) injects connection strings as env vars.
@@ -68,3 +80,8 @@ production:
     <<: *default
     url: <%= ENV["AUDIT_DATABASE_URL"] %>
     migrations_paths: db/audit_migrate
+  cashline_sync:
+    # Render provisions cashline-sailfin-sync-db; map it to CASHLINE_SYNC_DATABASE_URL.
+    <<: *default
+    url: <%= ENV["CASHLINE_SYNC_DATABASE_URL"] %>
+    database_tasks: false
