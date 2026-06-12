@@ -22,19 +22,33 @@ module CashlineSyncImport
 end
 
 namespace :cashline_sync do
-  desc "Full sync for a run, in dependency order: accounts (emits the crosswalk), " \
-       "then contacts and invoices (route through it). The safe one-shot. " \
-       "RUN=<id> SAMPLE=<limit>"
+  desc "Full sync for a run, in dependency order: users (history + assignees), " \
+       "accounts (emits the crosswalk), then contacts, invoices and tasks (route " \
+       "through it). The safe one-shot. RUN=<id> SAMPLE=<limit>"
   task import_all: :environment do
     run_id = CashlineSyncImport.resolve_run_id("Account")
     abort "No extraction run with Account records found." unless run_id
     limit = CashlineSyncImport.sample_limit
 
+    CashlineSyncImport.run!(Sync::UserImporter, label: "Users", run_id: run_id, limit: limit)
+    puts
     CashlineSyncImport.run!(Sync::AccountImporter, label: "Accounts", run_id: run_id, limit: limit)
     puts
     CashlineSyncImport.run!(Sync::ContactImporter, label: "Contacts", run_id: run_id, limit: limit)
     puts
     CashlineSyncImport.run!(Sync::InvoiceImporter, label: "Invoices", run_id: run_id, limit: limit)
+    puts
+    CashlineSyncImport.run!(Sync::TaskImporter, label: "Tasks", run_id: run_id, limit: limit)
+  end
+
+  desc "Import Sailfin Users into the platform users table for historical " \
+       "reference and task attribution. All imported blocked (no login); " \
+       "non-destructive on re-sync (never re-blocks/re-passwords an invited " \
+       "user). Keyed on sailfin_user_id. RUN=<extraction_run_id> SAMPLE=<limit>"
+  task import_users: :environment do
+    run_id = CashlineSyncImport.resolve_run_id("User")
+    abort "No extraction run with User records found." unless run_id
+    CashlineSyncImport.run!(Sync::UserImporter, label: "Users", run_id: run_id, limit: CashlineSyncImport.sample_limit)
   end
 
   desc "Full-refresh import of Sailfin Accounts into the cashline sync DB: " \
@@ -64,6 +78,16 @@ namespace :cashline_sync do
     run_id = CashlineSyncImport.resolve_run_id("Account")
     abort "No extraction run found." unless run_id
     CashlineSyncImport.run!(Sync::InvoiceImporter, label: "Invoices", run_id: run_id, limit: CashlineSyncImport.sample_limit)
+  end
+
+  desc "Import Sailfin Tasks into the cashline sync DB, forking each to " \
+       "communication_events (logged email/call) or operational_tasks (work " \
+       "items), routed via the account crosswalk. Run import_accounts + " \
+       "import_users FIRST (or use import_all). RUN=<extraction_run_id> SAMPLE=<limit>"
+  task import_tasks: :environment do
+    run_id = CashlineSyncImport.resolve_run_id("Task")
+    abort "No extraction run with Task records found." unless run_id
+    CashlineSyncImport.run!(Sync::TaskImporter, label: "Tasks", run_id: run_id, limit: CashlineSyncImport.sample_limit)
   end
 
   desc "Detect candidate customer groupings (parent roll-ups) from Sailfin " \
