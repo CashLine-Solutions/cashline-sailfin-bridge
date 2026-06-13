@@ -95,6 +95,31 @@ class Sync::InvoiceImporterTest < ActiveSupport::TestCase
     assert_equal 1, CashlineSync::Invoice.where(invoice_number: "4004").count
   end
 
+  test "maps Sailfin Days_to_Pay__c to days_to_pay_days for paid rows, sanitized" do
+    skip "cashline_sailfin_sync_test not provisioned" unless @sync_available
+
+    sf_account("A1", "VIKING SANITATION")
+    import_accounts!
+
+    sf_invoice("INV-PAID",   account: "A1", number: "5001", balance: "0.0",  days_to_pay: "39")      # paid
+    sf_invoice("INV-DEC",    account: "A1", number: "5002", balance: "0.0",  days_to_pay: "41.0")    # decimal -> rounds
+    sf_invoice("INV-NEG",    account: "A1", number: "5003", balance: "0.0",  days_to_pay: "-3")      # real negative kept
+    sf_invoice("INV-ABSURD", account: "A1", number: "5004", balance: "0.0",  days_to_pay: "-36521")  # sentinel -> nil
+    sf_invoice("INV-OPEN",   account: "A1", number: "5005", balance: "10.0", days_to_pay: "12")      # unpaid -> nil
+    sf_invoice("INV-BLANK",  account: "A1", number: "5006", balance: "0.0",  days_to_pay: "")        # blank -> nil
+
+    Sync::InvoiceImporter.new(extraction_run_id: @run.id, scaffolding: @scaffolding).call
+    by_num = ->(n) { CashlineSync::Invoice.find_by(invoice_number: n) }
+
+    assert_equal 39, by_num.call("5001").days_to_pay_days
+    assert_equal 41, by_num.call("5002").days_to_pay_days, "decimal day-count rounds to integer"
+    assert_equal(-3, by_num.call("5003").days_to_pay_days, "real negatives preserved (platform clamps with GREATEST)")
+    assert_nil by_num.call("5004").days_to_pay_days, "absurd sentinel dropped"
+    assert_nil by_num.call("5005").days_to_pay_days, "unpaid rows carry no day-count (mirrors paid_at guard)"
+    assert_nil by_num.call("5006").days_to_pay_days, "blank -> nil"
+    assert_equal "39", by_num.call("5001").metadata["days_to_pay_raw"], "raw value stashed in metadata for reconciliation"
+  end
+
   private
 
   def import_accounts!
@@ -111,13 +136,14 @@ class Sync::InvoiceImporterTest < ActiveSupport::TestCase
   end
 
   def sf_invoice(sf_id, account:, number:, amount: "100.00", tax: "0.00", balance: "0.0",
-                 issue: "2025-01-01", due: "2025-02-01", close: "2025-02-15")
+                 issue: "2025-01-01", due: "2025-02-01", close: "2025-02-15", days_to_pay: nil)
     SfRecord.create!(extraction_run: @run, object_api_name: "sfsrm__Transaction__c", sf_id: sf_id,
       exported_at: Time.current, payload: {
         "Id" => sf_id, "sfsrm__Account__c" => account, "Invoice__c" => number, "Type__c" => "Invoice",
         "Original_Amount__c" => amount, "sfsrm__Amount__c" => amount, "Tax_Amount__c" => tax,
         "sfsrm__Balance__c" => balance, "Invoice_Created_Date__c" => issue, "sfsrm__Due_Date__c" => due,
-        "sfsrm__Close_Date__c" => close, "sfsrm__Source_System__c" => "VikingSanitation"
+        "sfsrm__Close_Date__c" => close, "sfsrm__Source_System__c" => "VikingSanitation",
+        "Days_to_Pay__c" => days_to_pay
       })
   end
 
