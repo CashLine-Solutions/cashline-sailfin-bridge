@@ -27,6 +27,10 @@ module Sync
     # absurd/corrupt amount instead of aborting the whole 2M-row run.
     INT8_RANGE = (-9_223_372_036_854_775_808..9_223_372_036_854_775_807)
     CENTS_COLUMNS = %i[original_amount_cents total_cents tax_cents subtotal_cents balance_due_cents].freeze
+    # Days_to_Pay__c is clean but carries rare sentinels (observed min -36521 /
+    # max 23871). Drop anything beyond ~100 years as garbage; keep real negatives
+    # (the platform clamps with GREATEST(0, …)) so the raw value stays diagnosable.
+    DAY_COUNT_BOUND = 36_525
 
     def initialize(extraction_run_id:, limit: nil, scaffolding: ScaffoldingBuilder.new)
       @run_id = extraction_run_id
@@ -121,6 +125,11 @@ module Sync
         issue_date: date(p["Invoice_Created_Date__c"]),
         due_date: date(p["sfsrm__Due_Date__c"]),
         paid_at: (balance.zero? ? time(p["sfsrm__Close_Date__c"]) : nil),
+        # Sailfin precomputes a clean per-transaction day-count; trust it over a
+        # date subtraction — the platform's issue_date is the SF record-creation
+        # date, not the invoice date, so paid_at - issue_date goes negative. Set
+        # only for paid rows, mirroring the paid_at guard above.
+        days_to_pay_days: (balance.zero? ? day_count(p["Days_to_Pay__c"]) : nil),
         payment_terms_description: p["Axis_Payment_Terms__c"].presence,
         job_number: p["Job_Number_Job_Name__c"].presence,
         description: p["Type_Description__c"].presence,
@@ -153,7 +162,12 @@ module Sync
         brand_code: p["Brand_Code_Invoice__c"].presence,
         # uncertain mappings — promote to typed columns once confirmed:
         region_key: p["Viking_Region_Key__c"].presence,
-        fluid_mgmt_division: p["Fluid_Management_Construction_Division__c"].presence
+        fluid_mgmt_division: p["Fluid_Management_Construction_Division__c"].presence,
+        # WADTP provenance — raw Sailfin day-count inputs kept for reconciliation
+        # against the typed days_to_pay_days column.
+        days_to_pay_raw: p["Days_to_Pay__c"].presence,
+        posting_date: p["Posting_Date__c"].presence,
+        weighted_days_to_pay: p["Weighted_Days_to_Pay__c"].presence
       }.compact
     end
 
@@ -165,6 +179,18 @@ module Sync
       return if rows.empty?
       CashlineSync::Invoice.upsert_all(rows, unique_by: %i[client_group_id invoice_number])
       @stats[:invoices] += rows.size
+    end
+
+    # Sailfin's precomputed per-row day-count -> integer, or nil for
+    # blank/non-numeric/absurd values. Negatives are preserved (see
+    # DAY_COUNT_BOUND); the platform clamps with GREATEST(0, …).
+    def day_count(str)
+      s = str.to_s.strip
+      return nil if s.empty?
+      days = BigDecimal(s).round
+      days.abs > DAY_COUNT_BOUND ? nil : days
+    rescue ArgumentError
+      nil
     end
 
     # "118.91" -> 11891 cents; blanks/garbage -> 0.
